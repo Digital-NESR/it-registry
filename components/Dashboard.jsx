@@ -147,6 +147,7 @@ export function Dashboard() {
   const piiYes = filtered.filter(a => a.containsPii === "Yes").length;
   const vulnDist = ["None", "Low", "Medium", "High", "Critical"].map(v => [v, filtered.filter(a => a.openVulnerabilities === v).length]);
 
+  const deptOptions = useMemo(() => [...new Set(apps.map(a => a.department).filter(Boolean))].sort(), [apps]);
   const statusColor = (s) => `var(${(STATUS_C[s] || STATUS_C.Decommissioned)[0]})`;
   const critColorByLabel = (l) => CRIT_C[+l.replace("Tier ", "")] || "#6B6D6B";
 
@@ -157,7 +158,7 @@ export function Dashboard() {
         <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12.5, color: "var(--text-soft)", fontWeight: 600 }}>
           <Icon name="filter" size={15} /> Slice by
         </div>
-        <Dropdown label="Department" value={filters.department} options={NESR.departments}
+        <Dropdown label="Department" value={filters.department} options={deptOptions}
           onChange={v => setFilters(f => ({ ...f, department: v }))} />
         <Dropdown label="Status" value={filters.status} options={NESR.refs.status}
           onChange={v => setFilters(f => ({ ...f, status: v }))} />

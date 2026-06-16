@@ -1,9 +1,19 @@
 "use client";
 /* ===== Add / Edit Application: multi-step submission form ===== */
-import { Fragment, useState, useEffect, useRef } from "react";
+import { Fragment, useState, useEffect, useRef, useMemo } from "react";
 import { useStore } from "./store";
-import { NESR, headOfIT, people as PEOPLE } from "@/lib/schema";
+import { NESR, headOfIT, people as PEOPLE, fieldByKey } from "@/lib/schema";
 import { Icon, primaryBtn, ghostBtn, textBtn } from "./ui";
+
+const GLOBAL = "Global";
+// Cost-centre mapping is fetched once per session and cached.
+let _ccCache = null;
+async function loadCostCenters() {
+  if (_ccCache) return _ccCache;
+  try { const r = await fetch("/api/cost-centers", { cache: "no-store" }); _ccCache = r.ok ? await r.json() : []; }
+  catch { _ccCache = []; }
+  return _ccCache;
+}
 
 const REQUIRED = ["name", "businessOwner", "itOwner", "department", "sourcing", "hostingModel", "status", "businessCriticality", "dataClassification"];
 
@@ -81,6 +91,123 @@ function MultiSelect({ value = [], options, onChange, placeholder }) {
           })}
         </div>
       )}
+    </div>
+  );
+}
+
+/* ---------- searchable single-select ---------- */
+function SearchSelect({ value, options, onChange, placeholder, disabled }) {
+  const [open, setOpen] = useState(false);
+  const [q, setQ] = useState("");
+  const ref = useRef(null);
+  useEffect(() => {
+    const h = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
+    document.addEventListener("mousedown", h); return () => document.removeEventListener("mousedown", h);
+  }, []);
+  const filtered = options.filter((o) => o.toLowerCase().includes(q.toLowerCase()));
+  const shown = filtered.slice(0, 200);
+  const pick = (o) => { onChange(o); setOpen(false); setQ(""); };
+  return (
+    <div ref={ref} style={{ position: "relative" }}>
+      <button type="button" disabled={disabled} onClick={() => !disabled && setOpen((o) => !o)}
+        style={{ ...inputStyle(false), display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, textAlign: "left",
+          cursor: disabled ? "not-allowed" : "pointer", background: disabled ? "var(--surface-2)" : "var(--surface)", color: value ? "var(--text)" : "var(--text-faint)" }}>
+        <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+          {value || placeholder || "Select…"}
+        </span>
+        <span style={{ display: "flex", alignItems: "center", gap: 4, flexShrink: 0 }}>
+          {value && !disabled && <span onClick={(e) => { e.stopPropagation(); onChange(""); }} style={{ display: "grid", placeItems: "center", color: "var(--text-faint)" }}><Icon name="x" size={13} /></span>}
+          <Icon name="chevDown" size={14} style={{ color: "var(--text-faint)" }} />
+        </span>
+      </button>
+      {open && (
+        <div style={{ position: "absolute", top: "calc(100% + 5px)", left: 0, right: 0, zIndex: 40, maxHeight: 260, overflow: "auto",
+          background: "var(--surface)", border: "1px solid var(--line)", borderRadius: 10, boxShadow: "var(--shadow-lg)", padding: 6, animation: "popIn .16s ease both" }}>
+          <input autoFocus value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search…" style={{ ...inputStyle(false), marginBottom: 6 }} onClick={(e) => e.stopPropagation()} />
+          {shown.length === 0 && <div style={{ padding: 8, fontSize: 12, color: "var(--text-faint)" }}>No matches.</div>}
+          {shown.map((o) => (
+            <button type="button" key={o} onClick={() => pick(o)} style={{ display: "flex", alignItems: "center", gap: 8, width: "100%", padding: "7px 8px",
+              borderRadius: 7, border: "none", background: o === value ? "var(--green-100)" : "transparent", textAlign: "left", fontSize: 12.5,
+              fontWeight: o === GLOBAL ? 700 : o === value ? 600 : 500, color: o === GLOBAL ? "var(--green-700)" : "var(--text)" }}
+              onMouseEnter={(e) => { if (o !== value) e.currentTarget.style.background = "var(--surface-2)"; }} onMouseLeave={(e) => { if (o !== value) e.currentTarget.style.background = "transparent"; }}>
+              {o}
+            </button>
+          ))}
+          {filtered.length > shown.length && <div style={{ padding: "6px 8px", fontSize: 11, color: "var(--text-faint)" }}>+{filtered.length - shown.length} more — refine your search</div>}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ---------- cascading cost-centre picker (Country → Company → Dept/Cost Centre) ---------- */
+const uniqSorted = (arr) => [...new Set(arr.filter(Boolean))].sort();
+
+function CostCenterPicker({ value, patch, mapping, touched, errors }) {
+  const { country, companyName, department, costCentre } = value;
+  const data = useMemo(() => {
+    const countries = uniqSorted(mapping.map((r) => r.country));
+    const allCompanies = uniqSorted(mapping.map((r) => r.company));
+    const companiesByCountry = {};
+    mapping.forEach((r) => { (companiesByCountry[r.country] ??= new Set()).add(r.company); });
+    return { countries, allCompanies, companiesByCountry };
+  }, [mapping]);
+
+  const globalActive = country === GLOBAL || companyName === GLOBAL;
+
+  // candidate rows for department / cost-centre
+  const rows = useMemo(() => {
+    if (globalActive) return mapping;
+    if (companyName) return mapping.filter((r) => r.company === companyName && (country && country !== GLOBAL ? r.country === country : true));
+    return null; // company required first
+  }, [mapping, country, companyName, globalActive]);
+
+  const companyOptions = !country ? null
+    : country === GLOBAL ? [GLOBAL, ...data.allCompanies]
+    : [GLOBAL, ...uniqSorted([...(data.companiesByCountry[country] || [])])];
+
+  const deptRows = rows && department && department !== GLOBAL ? rows.filter((r) => r.department === department) : rows;
+  const ccRows = rows && costCentre && costCentre !== GLOBAL ? rows.filter((r) => r.costCenter === costCentre) : rows;
+  const departmentOptions = rows ? [GLOBAL, ...uniqSorted(rows.map((r) => r.department))] : null;
+  const costCenterOptions = rows ? [GLOBAL, ...uniqSorted((deptRows || rows).map((r) => r.costCenter))] : null;
+
+  const onCountry = (v) => patch({ country: v, companyName: "", department: "", costCentre: "" });
+  const onCompany = (v) => patch({ companyName: v, department: "", costCentre: "" });
+  const onDepartment = (v) => {
+    if (v === GLOBAL || v === "") return patch({ department: v });
+    const matches = (rows || []).filter((r) => r.department === v);
+    // 1-to-1 within a company: auto-fill the cost centre if unambiguous.
+    patch({ department: v, costCentre: matches.length === 1 ? matches[0].costCenter : (matches.some((m) => m.costCenter === costCentre) ? costCentre : "") });
+  };
+  const onCostCentre = (v) => {
+    if (v === GLOBAL || v === "") return patch({ costCentre: v });
+    const row = (rows || mapping).find((r) => r.costCenter === v);
+    patch({ costCentre: v, department: row ? row.department : department });
+  };
+
+  const Cell = ({ k, options, onChange, placeholder, disabled }) => {
+    const f = fieldByKey[k];
+    const req = REQUIRED.includes(k);
+    const err = touched && errors[k];
+    return (
+      <div>
+        <label style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 11.5, fontWeight: 600, color: "var(--text-soft)", marginBottom: 5 }}>
+          {f.label}{req && <span style={{ color: "var(--st-reject)" }}>*</span>}
+        </label>
+        <SearchSelect value={value[k]} options={options || []} onChange={onChange} placeholder={placeholder} disabled={disabled} />
+        {f.hint && <div style={{ fontSize: 11, color: "var(--text-faint)", marginTop: 4, lineHeight: 1.4 }}>{f.hint}</div>}
+        {err && <div style={{ fontSize: 11, color: "var(--st-reject)", marginTop: 4, fontWeight: 600 }}>{err}</div>}
+      </div>
+    );
+  };
+
+  return (
+    <div style={{ gridColumn: "span 2", display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px 20px",
+      padding: 14, borderRadius: 11, background: "var(--surface-2)", border: "1px solid var(--line)" }}>
+      <Cell k="country" options={[GLOBAL, ...data.countries]} onChange={onCountry} placeholder="Select country…" />
+      <Cell k="companyName" options={companyOptions} onChange={onCompany} placeholder={country ? "Select company…" : "Select a country first"} disabled={!country} />
+      <Cell k="department" options={departmentOptions} onChange={onDepartment} placeholder={rows ? "Select department…" : "Select a company first"} disabled={!rows} />
+      <Cell k="costCentre" options={costCenterOptions} onChange={onCostCentre} placeholder={rows ? "Select cost centre…" : "Select a company first"} disabled={!rows} />
     </div>
   );
 }
@@ -188,9 +315,12 @@ export function AddForm() {
   const [existingDocs, setExistingDocs] = useState(() => (prefill?.documents ? [...prefill.documents] : []));
   const editing = !!prefill;
 
+  const [costCenters, setCostCenters] = useState(_ccCache || []);
+  useEffect(() => { loadCostCenters().then(setCostCenters); }, []);
   useEffect(() => () => setPrefill(null), [setPrefill]);
 
   const set = (k, v) => setData((d) => ({ ...d, [k]: v }));
+  const patch = (obj) => setData((d) => ({ ...d, ...obj }));
   const errors = {};
   REQUIRED.forEach((k) => { if (!String(data[k] || "").trim()) errors[k] = "Required"; });
 
@@ -243,7 +373,7 @@ export function AddForm() {
   };
 
   return (
-    <div style={{ padding: "20px 26px 60px", maxWidth: 960, margin: "0 auto" }}>
+    <div style={{ padding: "20px 26px 60px", maxWidth: 1060, margin: "0 auto" }}>
       <datalist id="nesr-people">{[...new Set(PEOPLE)].map((p) => <option key={p} value={p} />)}</datalist>
 
       <button onClick={() => setView(editing ? "registry" : "dashboard")} style={{ ...textBtn, paddingLeft: 0, marginBottom: 8 }}>
@@ -257,19 +387,19 @@ export function AddForm() {
       </div>
 
       {/* stepper */}
-      <div style={{ display: "flex", alignItems: "center", marginBottom: 22, flexWrap: "wrap", gap: "8px 0" }}>
+      <div style={{ display: "flex", alignItems: "flex-start", marginBottom: 22, flexWrap: "nowrap", gap: 0 }}>
         {STEPS.map((s, i) => (
           <Fragment key={i}>
             <button onClick={() => i < step && setStep(i)} style={{ display: "flex", alignItems: "center", gap: 8, border: "none",
-              background: "transparent", cursor: i < step ? "pointer" : "default", flexShrink: 0 }}>
+              background: "transparent", cursor: i < step ? "pointer" : "default", flexShrink: 1, minWidth: 0, padding: 0 }}>
               <span style={{ width: 30, height: 30, borderRadius: 99, flexShrink: 0, display: "grid", placeItems: "center",
                 fontSize: 12.5, fontWeight: 700, transition: "all .2s",
                 background: i < step ? "var(--green-600)" : i === step ? "var(--ink)" : "var(--line)", color: i <= step ? "#fff" : "var(--text-faint)" }}>
                 {i < step ? <Icon name="check" size={14} strokeWidth={3} /> : i + 1}
               </span>
-              <span style={{ fontSize: 12.5, fontWeight: i === step ? 700 : 500, color: i === step ? "var(--text)" : "var(--text-faint)", whiteSpace: "nowrap" }}>{s.label}</span>
+              <span style={{ fontSize: 12.5, fontWeight: i === step ? 700 : 500, color: i === step ? "var(--text)" : "var(--text-faint)", textAlign: "left", lineHeight: 1.2 }}>{s.label}</span>
             </button>
-            {i < STEPS.length - 1 && <div style={{ flex: 1, height: 2, background: i < step ? "var(--green-400)" : "var(--line)", margin: "0 12px", borderRadius: 2, minWidth: 14 }} />}
+            {i < STEPS.length - 1 && <div style={{ flex: 1, height: 2, background: i < step ? "var(--green-400)" : "var(--line)", margin: "15px 8px 0", borderRadius: 2, minWidth: 8 }} />}
           </Fragment>
         ))}
       </div>
@@ -291,9 +421,17 @@ export function AddForm() {
                 </div>
                 {dom.hint && <div style={{ fontSize: 11.5, color: "var(--text-faint)", marginBottom: 14 }}>{dom.hint}</div>}
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px 20px", marginTop: dom.hint ? 0 : 8 }}>
-                  {dom.fields.filter((f) => fieldVisible(f, data)).map((f) => (
-                    <Field key={f.key} f={f} value={data[f.key]} onChange={set} error={touched && errors[f.key]} apps={apps} docProps={f.file ? docProps : undefined} />
-                  ))}
+                  {(() => {
+                    const items = []; let pickerDone = false;
+                    dom.fields.filter((f) => fieldVisible(f, data)).forEach((f) => {
+                      if (f.cascade) {
+                        if (!pickerDone) { items.push(<CostCenterPicker key="__cc" value={data} patch={patch} mapping={costCenters} touched={touched} errors={errors} />); pickerDone = true; }
+                        return;
+                      }
+                      items.push(<Field key={f.key} f={f} value={data[f.key]} onChange={set} error={touched && errors[f.key]} apps={apps} docProps={f.file ? docProps : undefined} />);
+                    });
+                    return items;
+                  })()}
                 </div>
               </div>
             ))}

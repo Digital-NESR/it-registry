@@ -33,7 +33,9 @@ const COLDEFS = {
   ) },
   status: { label: "Status", w: 150, render: (a) => <StatusChip value={a.status} /> },
   approvalStatus: { label: "Approval", w: 120, render: (a) => <ApprovalChip value={a.approvalStatus} /> },
-  department: { label: "Department", w: 150 },
+  department: { label: "Department", w: 160 },
+  country: { label: "Country", w: 120 },
+  companyName: { label: "Company", w: 220 },
   businessCriticality: { label: "Criticality", w: 90, render: (a) => <CritChip value={a.businessCriticality} /> },
   businessOwner: { label: "Business Owner", w: 165, render: (a) => <OwnerCell name={a.businessOwner} /> },
   itOwner: { label: "IT Owner", w: 165, render: (a) => <OwnerCell name={a.itOwner} /> },
@@ -64,7 +66,7 @@ const COLDEFS = {
 
 const COL_GROUPS = [
   { key: "overview", label: "Overview", cols: ["status", "approvalStatus", "department", "businessCriticality", "tco"] },
-  { key: "ownership", label: "Ownership", cols: ["businessOwner", "itOwner", "sourcing"] },
+  { key: "ownership", label: "Ownership", cols: ["businessOwner", "itOwner", "country", "companyName", "sourcing"] },
   { key: "technical", label: "Technical", cols: ["hostingModel", "hostingLocation", "cloudProvider", "architectureType", "integrationComplexity", "ssoProvider"] },
   { key: "risk", label: "Risk & Compliance", cols: ["dataClassification", "containsPii", "openVulnerabilities", "drAvailability", "hasBackup"] },
   { key: "financial", label: "Financial", cols: ["annualLicenseCost", "contractRenewalDate"] },
@@ -110,6 +112,7 @@ export function Registry() {
 
   const setSortKey = (k) => setSort(s => ({ key: k, dir: s.key === k ? -s.dir : 1 }));
   const activeFilters = Object.entries(filters).filter(([, v]) => v);
+  const deptOptions = useMemo(() => [...new Set(apps.map(a => a.department).filter(Boolean))].sort(), [apps]);
 
   return (
     <div style={{ padding: "20px 26px 10px", height: "100%", display: "flex", flexDirection: "column" }}>
@@ -122,7 +125,7 @@ export function Registry() {
             fontSize: 13, fontFamily: "inherit", background: "var(--surface)" }} />
         </div>
         <Dropdown label="Status" value={filters.status} options={NESR.refs.status} onChange={v => setFilters(f => ({ ...f, status: v }))} />
-        <Dropdown label="Department" value={filters.department} options={NESR.departments} onChange={v => setFilters(f => ({ ...f, department: v }))} />
+        <Dropdown label="Department" value={filters.department} options={deptOptions} onChange={v => setFilters(f => ({ ...f, department: v }))} />
         <Dropdown label="Criticality" value={filters.businessCriticality} options={NESR.refs.businessCriticality} onChange={v => setFilters(f => ({ ...f, businessCriticality: v }))} />
         <Dropdown label="Approval" value={filters.approvalStatus} options={["Approved", "Pending", "Draft", "Rejected"]} onChange={v => setFilters(f => ({ ...f, approvalStatus: v }))} />
         {activeFilters.length > 0 && <button onClick={() => setFilters({})} style={textBtn}><Icon name="x" size={13} /> Clear</button>}
