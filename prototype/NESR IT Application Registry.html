@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>NESR · IT Application Registry</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="src/theme.css" />
+  <style>
+    #boot { position: fixed; inset: 0; display: grid; place-items: center; background: var(--bg); z-index: 999; transition: opacity .3s; }
+    #boot.hide { opacity: 0; pointer-events: none; }
+    .boot-mark { width: 46px; height: 46px; border-radius: 12px; background: var(--green-600); display: grid; place-items: center;
+      color: #fff; font-weight: 700; font-size: 22px; animation: pulse 1.2s ease-in-out infinite; }
+    @keyframes pulse { 0%,100% { transform: scale(1); opacity: 1; } 50% { transform: scale(.92); opacity: .7; } }
+  </style>
+</head>
+<body>
+  <div id="boot"><div class="boot-mark">N</div></div>
+  <div id="root"></div>
+
+  <template id="__bundler_thumbnail" data-bg-color="#2A7E4F">
+    <svg viewBox="0 0 1200 800" xmlns="http://www.w3.org/2000/svg">
+      <rect width="1200" height="800" fill="#2A7E4F"/>
+      <rect x="430" y="250" width="120" height="120" rx="26" fill="#ffffff"/>
+      <text x="490" y="338" font-family="IBM Plex Sans, sans-serif" font-size="78" font-weight="700" fill="#2A7E4F" text-anchor="middle">N</text>
+      <rect x="588" y="262" width="182" height="22" rx="11" fill="#C5E0D2"/>
+      <rect x="588" y="300" width="120" height="18" rx="9" fill="#6AAF8E"/>
+      <!-- mini dashboard bars -->
+      <rect x="430" y="440" width="60" height="110" rx="10" fill="#C5E0D2"/>
+      <rect x="510" y="410" width="60" height="140" rx="10" fill="#6AAF8E"/>
+      <rect x="590" y="470" width="60" height="80" rx="10" fill="#C5E0D2"/>
+      <rect x="670" y="430" width="60" height="120" rx="10" fill="#ffffff"/>
+      <text x="600" y="610" font-family="IBM Plex Sans, sans-serif" font-size="30" font-weight="600" fill="#C5E0D2" text-anchor="middle" letter-spacing="2">IT APPLICATION REGISTRY</text>
+    </svg>
+  </template>
+
+  <script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+
+  <!-- data first (plain JS) -->
+  <script src="src/data.js"></script>
+
+  <!-- views (JSX) -->
+  <script type="text/babel" src="src/components.jsx"></script>
+  <script type="text/babel" src="src/dashboard.jsx"></script>
+  <script type="text/babel" src="src/registry.jsx"></script>
+  <script type="text/babel" src="src/detail.jsx"></script>
+  <script type="text/babel" src="src/addform.jsx"></script>
+  <script type="text/babel" src="src/approvals.jsx"></script>
+  <script type="text/babel" src="src/tweaks-panel.jsx"></script>
+  <script type="text/babel" src="src/app.jsx"></script>
+
+  <!-- mount -->
+  <script type="text/babel" data-presets="react">
+    const root = ReactDOM.createRoot(document.getElementById("root"));
+    root.render(<App />);
+    const boot = document.getElementById("boot");
+    if (boot) { boot.classList.add("hide"); setTimeout(() => boot.remove(), 400); }
+  </script>
+
+  <style id="__om-edit-overrides"></style>
+</body>
+</html>

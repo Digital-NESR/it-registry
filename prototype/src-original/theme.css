@@ -1,0 +1,86 @@
+/* ===== NESR IT Application Registry — design tokens & base ===== */
+:root {
+  /* brand palette (locked) */
+  --green-600: #2A7E4F;   /* primary */
+  --green-700: #226841;
+  --green-400: #6AAF8E;
+  --green-100: #C5E0D2;
+  --ink: #1F1F1D;         /* near-black */
+  --gray-500: #58595B;
+  --gray-300: #D1D3D4;
+  --white: #FFFFFF;
+
+  /* derived neutrals */
+  --bg: #F4F6F4;
+  --surface: #FFFFFF;
+  --surface-2: #FAFBFA;
+  --line: #E5E8E5;
+  --line-strong: #D1D3D4;
+  --text: #1F1F1D;
+  --text-soft: #58595B;
+  --text-faint: #8A8C8A;
+
+  /* semantic status */
+  --st-active: #2A7E4F;   --st-active-bg: #E4F0EA;
+  --st-dev: #2563A8;      --st-dev-bg: #E5EEF7;
+  --st-review: #B7791F;   --st-review-bg: #FBF1DD;
+  --st-sunset: #C05621;   --st-sunset-bg: #FBE9DD;
+  --st-decom: #6B6D6B;    --st-decom-bg: #ECEEEC;
+  --st-reject: #B42318;   --st-reject-bg: #FBE7E5;
+  --st-draft: #6B6D6B;    --st-draft-bg: #EDEFED;
+
+  --radius: 10px;
+  --radius-sm: 7px;
+  --shadow-sm: 0 1px 2px rgba(31,31,29,.06), 0 1px 1px rgba(31,31,29,.04);
+  --shadow-md: 0 4px 16px rgba(31,31,29,.08), 0 1px 3px rgba(31,31,29,.06);
+  --shadow-lg: 0 16px 48px rgba(31,31,29,.16);
+  --rail-w: 232px;
+
+  --font: "IBM Plex Sans", system-ui, sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, monospace;
+}
+
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; }
+body {
+  font-family: var(--font);
+  color: var(--text);
+  background: var(--bg);
+  -webkit-font-smoothing: antialiased;
+  font-size: 14px;
+  line-height: 1.45;
+}
+#root { height: 100%; }
+button { font-family: inherit; cursor: pointer; }
+::selection { background: var(--green-100); }
+
+/* numerals: tabular for data */
+.num, .mono { font-family: var(--mono); font-feature-settings: "tnum" 1; }
+
+/* scrollbars */
+::-webkit-scrollbar { width: 11px; height: 11px; }
+::-webkit-scrollbar-thumb { background: #C8CCC8; border-radius: 8px; border: 3px solid var(--bg); }
+::-webkit-scrollbar-thumb:hover { background: #AEB2AE; }
+::-webkit-scrollbar-track { background: transparent; }
+
+/* focus ring */
+.focusable:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible {
+  outline: 2px solid var(--green-400); outline-offset: 1px;
+}
+
+/* keyframes — NOTE: page/card containers animate transform-only so content is
+   never invisible if the animation is paused (e.g. backgrounded iframe). */
+@keyframes viewIn { from { transform: translateY(9px); } to { transform: none; } }
+@keyframes cardIn { from { transform: translateY(10px); } to { transform: none; } }
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+@keyframes growBar { from { transform: scaleY(.001); } to { transform: scaleY(1); } }
+@keyframes popIn { from { opacity: 0; transform: scale(.96) translateY(6px); } to { opacity: 1; transform: none; } }
+
+.view-enter { }
+@media (prefers-reduced-motion: no-preference) {
+  .view-enter { animation: viewIn .34s cubic-bezier(.2,.7,.3,1); }
+}
+
+/* density (Tweaks) */
+body.density-comfy table td { padding-top: 14px; padding-bottom: 14px; }
+body.density-comfy table th { padding-top: 13px; padding-bottom: 13px; }
