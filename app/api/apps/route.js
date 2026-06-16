@@ -1,19 +1,22 @@
 import { NextResponse } from "next/server";
-import { ensureSchema, listApps, insertApp, updateApp } from "@/lib/db";
-import { fieldKeys, today } from "@/lib/schema";
+import { ensureSchema, listApps, insertApp, patchApp, getApp, reconcileLinks } from "@/lib/db";
+import { persistedFieldKeys, fieldByKey, today } from "@/lib/schema";
 
-// pg requires the Node.js runtime (not Edge). Never cache — always hit the DB.
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 /** Keep only known application fields from an arbitrary request body. */
-function pickFields(body) {
-  const rec = {};
-  for (const k of ["name", ...fieldKeys]) rec[k] = body[k] ?? "";
+export function pickFields(body) {
+  const rec = { name: body.name ?? "" };
+  for (const k of persistedFieldKeys) {
+    const f = fieldByKey[k];
+    const isArr = f && (f.multi || f.apps);
+    rec[k] = body[k] ?? (isArr ? [] : "");
+    if (isArr && !Array.isArray(rec[k])) rec[k] = rec[k] ? [rec[k]] : [];
+  }
   return rec;
 }
-
-function deriveAlias(name) {
+export function deriveAlias(name) {
   return String(name || "").split(/[\s(]/)[0].toUpperCase().slice(0, 6);
 }
 
@@ -39,9 +42,7 @@ export async function POST(req) {
     if (!rec.alias) rec.alias = deriveAlias(rec.name);
     if (!rec.status) rec.status = "Under Development";
 
-    // Workflow metadata.
-    // TODO(auth): once real auth is wired in (see lib/auth.js), derive the
-    // submitter identity from the authenticated session instead of body.me.
+    // Workflow metadata. TODO(auth): derive submitter from the session.
     rec.approvalStatus = body.asDraft ? "Draft" : "Pending";
     rec.submittedBy = body.me || "Unknown";
     rec.submittedDate = today;
@@ -49,15 +50,12 @@ export async function POST(req) {
     rec.decisionDate = "";
     rec.decisionNote = "";
 
-    const saved = await insertApp(rec);
-
-    // Mint a stable App ID from the new database id when none was supplied.
+    let saved = await insertApp(rec);
     if (!saved.appId) {
-      const appId = "NESR-APP-" + String(1000 + saved.id * 7).slice(0, 4);
-      const updated = await updateApp(saved.id, { ...saved, appId });
-      return NextResponse.json(updated, { status: 201 });
+      saved = await patchApp(saved.id, { appId: "NESR-APP-" + String(1000 + saved.id * 7).slice(0, 4) });
     }
-    return NextResponse.json(saved, { status: 201 });
+    await reconcileLinks(saved);
+    return NextResponse.json(await getApp(saved.id), { status: 201 });
   } catch (e) {
     return NextResponse.json({ error: e.message }, { status: 500 });
   }

@@ -5,7 +5,7 @@
 
    Safe to re-run: it recreates the schema's index and, if the table already
    has rows, asks you to pass --force to wipe and reseed. */
-import { ensureSchema, pool, query } from "../lib/db.js";
+import { ensureSchema, pool, query, insertApp } from "../lib/db.js";
 import { buildSeedApps } from "../lib/seed-data.js";
 
 const force = process.argv.includes("--force");
@@ -25,15 +25,13 @@ async function main() {
 
   if (force) {
     console.log("→ --force: clearing existing rows…");
-    await query("TRUNCATE applications RESTART IDENTITY");
+    await query("TRUNCATE applications RESTART IDENTITY CASCADE");
   }
 
   const apps = buildSeedApps();
   console.log(`→ Inserting ${apps.length} applications…`);
   for (const app of apps) {
-    const record = { ...app };
-    delete record.id; // database owns the id
-    await query("INSERT INTO applications (record) VALUES ($1)", [record]);
+    await insertApp(app); // maps each field to its own typed column
   }
 
   const { rows: after } = await query("SELECT COUNT(*)::int AS n FROM applications");

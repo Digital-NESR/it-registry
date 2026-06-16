@@ -1,5 +1,5 @@
 "use client";
-/* ===== Application Detail: all 8 domains + approval actions ===== */
+/* ===== Application Detail: all domains + approval actions ===== */
 import { useState } from "react";
 import { useStore } from "./store";
 import { NESR } from "@/lib/schema";
@@ -9,8 +9,43 @@ import {
   exportCSV, primaryBtn, ghostBtn, textBtn,
 } from "./ui";
 
+const fieldVisible = (f, app) => !f.showIf || (f.showIf.in || []).includes(app[f.showIf.key]);
+const domainVisible = (dom, app) => !dom.showIf || (dom.showIf.in || []).includes(app[dom.showIf.key]);
+const PEOPLE_KEYS = ["businessOwner", "itOwner", "primarySupportContact", "escalationContact", "serverOwner"];
+
+function Documents({ docs }) {
+  if (!docs || !docs.length) return <span style={{ color: "var(--text-faint)" }}>No documents uploaded.</span>;
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+      {docs.map((d) => (
+        <a key={d.id} href={`/api/documents/${d.id}`} target="_blank" rel="noreferrer"
+          style={{ display: "flex", alignItems: "center", gap: 9, padding: "8px 11px", borderRadius: 9, border: "1px solid var(--line)",
+            background: "var(--surface-2)", textDecoration: "none", color: "var(--text)" }}>
+          <Icon name="doc" size={15} style={{ color: "var(--green-600)" }} />
+          <span style={{ flex: 1, fontSize: 12.5, fontWeight: 600, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{d.filename}</span>
+          <span style={{ fontSize: 11, color: "var(--text-faint)" }}>{Math.round((d.size || 0) / 1024)} KB</span>
+          <Icon name="export" size={13} style={{ color: "var(--text-faint)" }} />
+        </a>
+      ))}
+    </div>
+  );
+}
+
+function Chips({ values }) {
+  if (!values || !values.length) return <span style={{ color: "var(--text-faint)" }}>—</span>;
+  return (
+    <span style={{ display: "inline-flex", flexWrap: "wrap", gap: 5 }}>
+      {values.map((v) => (
+        <span key={v} style={{ padding: "2px 8px", borderRadius: 7, background: "var(--green-100)", color: "var(--green-700)", fontSize: 11.5, fontWeight: 600 }}>{v}</span>
+      ))}
+    </span>
+  );
+}
+
 function fieldValue(app, f) {
   const v = app[f.key];
+  if (f.file) return <Documents docs={app.documents} />;
+  if (f.multi || f.apps) return <Chips values={Array.isArray(v) ? v : []} />;
   if (v === "" || v == null) return <span style={{ color: "var(--text-faint)" }}>—</span>;
   if (f.money) return <span className="num" title={fmtMoneyFull(v)}>{fmtMoneyFull(v)}</span>;
   if (f.num) return <span className="num">{fmtNum(v)}</span>;
@@ -21,29 +56,31 @@ function fieldValue(app, f) {
     </span>;
   }
   if (f.key === "status") return <StatusChip value={v} />;
-  if (f.key === "businessCriticality" || f.key === "drTier") return <span style={{ display: "inline-flex", alignItems: "center", gap: 7 }}><span style={{ width: 8, height: 8, borderRadius: 2, background: CRIT_C[critTier(v)] }} />{v}</span>;
+  if (f.key === "businessCriticality") return <span style={{ display: "inline-flex", alignItems: "center", gap: 7 }}><span style={{ width: 8, height: 8, borderRadius: 2, background: CRIT_C[critTier(v)] }} />{v}</span>;
   if (f.key === "openVulnerabilities") return <span style={{ color: VULN_C[v], fontWeight: 600 }}>{v}</span>;
   if (f.key === "containsPii") return <PiiCell v={v} />;
-  if (["businessOwner", "itOwner", "primarySupportContact", "escalationContact"].includes(f.key))
-    return <span style={{ display: "inline-flex", alignItems: "center", gap: 7 }}><Avatar name={v} size={20} />{v}</span>;
+  if (f.ref === "yesNo") return <Chip color={v === "Yes" ? "--st-active" : "--st-decom"} bg={v === "Yes" ? "--st-active-bg" : "--st-decom-bg"}>{v}</Chip>;
+  if (PEOPLE_KEYS.includes(f.key)) return <span style={{ display: "inline-flex", alignItems: "center", gap: 7 }}><Avatar name={v} size={20} />{v}</span>;
   return v;
 }
 
-const DOMAIN_TONE = { identity: "--green-600", technical: "--st-dev", lifecycle: "#0E7490", risk: "--st-reject",
-  financial: "--st-review", support: "#8B5CF6", value: "--green-700", dependencies: "#BE185D" };
+const DOMAIN_TONE = { identity: "--green-600", technical: "--st-dev", onprem: "#0E7490", lifecycle: "#0E7490",
+  risk: "--st-reject", resilience: "#3B5BB5", financial: "--st-review", vendor: "--st-review", support: "#8B5CF6",
+  value: "--green-700", dependencies: "#BE185D", documents: "#475569" };
 
 export function Detail({ app }) {
-  const { setView, role, decide, push, setPrefill } = useStore();
-  const [decision, setDecision] = useState(null); // 'Approved' | 'Rejected'
+  const { setView, role, decide, push, setPrefill, canApprove, canEdit } = useStore();
+  const [decision, setDecision] = useState(null);
   const [note, setNote] = useState("");
-
-  const isHead = role === "Head of IT";
+  const isApprover = canApprove;
 
   const doDecide = async () => {
     const saved = await decide(app.id, decision, note);
     if (saved) push(decision === "Approved" ? `${app.name} approved & added to the registry` : `${app.name} rejected`, decision === "Approved" ? "ok" : "err");
     setDecision(null); setNote("");
   };
+
+  const editable = canEdit(app);
 
   return (
     <div style={{ padding: "18px 26px 50px", maxWidth: 1180, margin: "0 auto" }}>
@@ -69,9 +106,9 @@ export function Detail({ app }) {
             </div>
           </div>
           <div style={{ display: "flex", gap: 9 }}>
-            {(role === "Submitter" && (app.approvalStatus === "Rejected" || app.approvalStatus === "Draft")) && (
+            {editable && (
               <button onClick={() => { setPrefill(app); setView("add"); }} style={primaryBtn}>
-                <Icon name="edit" size={14} /> {app.approvalStatus === "Draft" ? "Edit & Submit" : "Revise & Resubmit"}
+                <Icon name="edit" size={14} /> {app.approvalStatus === "Draft" ? "Edit & Submit" : app.approvalStatus === "Rejected" ? "Revise & Resubmit" : "Edit"}
               </button>
             )}
             <button onClick={() => { exportCSV([app], `${app.alias || app.name}-${app.appId}.csv`); push("Exported application to CSV"); }} style={ghostBtn}>
@@ -86,10 +123,10 @@ export function Detail({ app }) {
             <div style={{ display: "flex", alignItems: "center", gap: 11, flexWrap: "wrap" }}>
               <Icon name="clock" size={18} style={{ color: "var(--st-review)" }} />
               <div style={{ flex: 1, minWidth: 200 }}>
-                <div style={{ fontSize: 13.5, fontWeight: 700, color: "#8A5A12" }}>Awaiting Head of IT approval</div>
+                <div style={{ fontSize: 13.5, fontWeight: 700, color: "#8A5A12" }}>Awaiting IT Director approval</div>
                 <div style={{ fontSize: 12.5, color: "var(--text-soft)" }}>Submitted by {app.submittedBy} on {fmtDate(app.submittedDate)}</div>
               </div>
-              {isHead ? (
+              {isApprover ? (
                 <div style={{ display: "flex", gap: 9 }}>
                   <button onClick={() => setDecision("Rejected")} style={{ ...ghostBtn, color: "var(--st-reject)", borderColor: "color-mix(in srgb, var(--st-reject) 35%, white)" }}>
                     <Icon name="x" size={14} /> Reject
@@ -98,7 +135,7 @@ export function Detail({ app }) {
                 </div>
               ) : (
                 <Chip color="--st-review" bg="--white" style={{ border: "1px solid color-mix(in srgb, var(--st-review) 30%, white)" }}>
-                  Switch to Head of IT to action
+                  Switch to IT Director to action
                 </Chip>
               )}
             </div>
@@ -126,34 +163,37 @@ export function Detail({ app }) {
       {/* highlight stats */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 14, marginBottom: 16 }}>
         <HiStat label="Annual TCO" value={fmtMoney(app.tco)} sub={`License ${fmtMoney(app.annualLicenseCost)}`} icon="coin" />
-        <HiStat label="Active Users" value={fmtNum(app.activeUsers)} sub={`of ${fmtNum(app.totalUserBase)} provisioned`} icon="user" />
-        <HiStat label="Integrations" value={app.integrationCount} sub={app.integrationComplexity} icon="link" />
-        <HiStat label="Open Vulns" value={app.openVulnerabilities} sub={`DR ${(app.drTier || "").replace(/ –.*/, "")} · SLA ${app.slaAvailability}`} icon="shield" tone={VULN_C[app.openVulnerabilities]} />
+        <HiStat label="Total Users" value={fmtNum(app.totalUserBase)} sub={`${app.seatCount ? fmtNum(app.seatCount) + " seats" : "user base"}`} icon="user" />
+        <HiStat label="Integrations" value={app.integrationCount || "—"} sub={app.integrationComplexity} icon="link" />
+        <HiStat label="Open Vulns" value={app.openVulnerabilities} sub={`DR ${app.drAvailability === "Yes" ? "available" : "none"} · SLA ${app.slaAvailability || "—"}`} icon="shield" tone={VULN_C[app.openVulnerabilities]} />
       </div>
 
       {/* domain sections */}
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
-        {NESR.domains.map((dom, i) => (
-          <section key={dom.key} style={{ background: "var(--surface)", border: "1px solid var(--line)", borderRadius: 14, padding: 18,
-            boxShadow: "var(--shadow-sm)", gridColumn: dom.key === "value" || dom.key === "dependencies" ? "span 1" : "auto",
-            animation: `cardIn .4s ease ${i * 0.04}s both` }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14 }}>
-              <span style={{ width: 30, height: 30, borderRadius: 8, background: `color-mix(in srgb, var(${DOMAIN_TONE[dom.key]}, ${DOMAIN_TONE[dom.key]}) 13%, white)`,
-                color: DOMAIN_TONE[dom.key].startsWith("--") ? `var(${DOMAIN_TONE[dom.key]})` : DOMAIN_TONE[dom.key], display: "grid", placeItems: "center" }}>
-                <Icon name={dom.icon} size={16} strokeWidth={1.9} />
-              </span>
-              <h3 style={{ margin: 0, fontSize: 13.5, fontWeight: 700, letterSpacing: "-.01em" }}>{dom.label}</h3>
-            </div>
-            <dl style={{ margin: 0, display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0" }}>
-              {dom.fields.map(f => (
-                <div key={f.key} style={{ padding: "8px 0", borderTop: "1px solid var(--line)", gridColumn: f.long ? "span 2" : "auto" }}>
-                  <dt style={{ fontSize: 11, color: "var(--text-faint)", fontWeight: 600, letterSpacing: ".01em", marginBottom: 2 }}>{f.label}</dt>
-                  <dd style={{ margin: 0, fontSize: 12.5, fontWeight: 500, color: "var(--text)", wordBreak: "break-word" }}>{fieldValue(app, f)}</dd>
-                </div>
-              ))}
-            </dl>
-          </section>
-        ))}
+        {NESR.domains.filter((dom) => domainVisible(dom, app)).map((dom, i) => {
+          const tone = DOMAIN_TONE[dom.key] || "--green-600";
+          const fields = dom.fields.filter((f) => fieldVisible(f, app));
+          return (
+            <section key={dom.key} style={{ background: "var(--surface)", border: "1px solid var(--line)", borderRadius: 14, padding: 18,
+              boxShadow: "var(--shadow-sm)", gridColumn: dom.key === "documents" ? "span 2" : "auto", animation: `cardIn .4s ease ${i * 0.03}s both` }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14 }}>
+                <span style={{ width: 30, height: 30, borderRadius: 8, background: `color-mix(in srgb, var(${tone}, ${tone}) 13%, white)`,
+                  color: tone.startsWith("--") ? `var(${tone})` : tone, display: "grid", placeItems: "center" }}>
+                  <Icon name={dom.icon} size={16} strokeWidth={1.9} />
+                </span>
+                <h3 style={{ margin: 0, fontSize: 13.5, fontWeight: 700, letterSpacing: "-.01em" }}>{dom.label}</h3>
+              </div>
+              <dl style={{ margin: 0, display: "grid", gridTemplateColumns: dom.key === "documents" ? "1fr" : "1fr 1fr", gap: "0" }}>
+                {fields.map((f) => (
+                  <div key={f.key} style={{ padding: "8px 0", borderTop: "1px solid var(--line)", gridColumn: f.long || f.file || f.apps ? "span 2" : "auto" }}>
+                    <dt style={{ fontSize: 11, color: "var(--text-faint)", fontWeight: 600, letterSpacing: ".01em", marginBottom: 2 }}>{f.label}</dt>
+                    <dd style={{ margin: 0, fontSize: 12.5, fontWeight: 500, color: "var(--text)", wordBreak: "break-word" }}>{fieldValue(app, f)}</dd>
+                  </div>
+                ))}
+              </dl>
+            </section>
+          );
+        })}
       </div>
 
       {/* decision modal */}
@@ -170,7 +210,7 @@ export function Detail({ app }) {
           <label style={{ fontSize: 12, fontWeight: 600, color: "var(--text-soft)", display: "block", marginBottom: 6 }}>
             {decision === "Approved" ? "Approval note (optional)" : "Reason for rejection"}
           </label>
-          <textarea value={note} onChange={e => setNote(e.target.value)} rows={3} autoFocus className="focusable"
+          <textarea value={note} onChange={(e) => setNote(e.target.value)} rows={3} autoFocus className="focusable"
             placeholder={decision === "Approved" ? "Conditions, comments…" : "Explain what needs to change…"}
             style={{ width: "100%", padding: 11, borderRadius: 9, border: "1px solid var(--line-strong)", fontFamily: "inherit", fontSize: 13, resize: "vertical" }} />
           <div style={{ display: "flex", gap: 10, justifyContent: "flex-end", marginTop: 18 }}>

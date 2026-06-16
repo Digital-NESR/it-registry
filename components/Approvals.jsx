@@ -8,11 +8,11 @@ import {
 } from "./ui";
 
 export function Approvals() {
-  const { apps, role, decide, push, goDetail } = useStore();
+  const { visibleApps: apps, canApprove, decide, push, goDetail } = useStore();
   const [tab, setTab] = useState("Pending");
   const [reject, setReject] = useState(null); // app being rejected
   const [note, setNote] = useState("");
-  const isHead = role === "Head of IT";
+  const isHead = canApprove;
 
   const buckets = {
     Pending: apps.filter(a => a.approvalStatus === "Pending").sort((a, b) => new Date(a.submittedDate) - new Date(b.submittedDate)),
@@ -34,8 +34,8 @@ export function Approvals() {
           border: "1px solid color-mix(in srgb, var(--st-dev) 20%, white)", marginBottom: 18 }}>
           <Icon name="eye" size={18} style={{ color: "var(--st-dev)" }} />
           <div style={{ flex: 1 }}>
-            <div style={{ fontSize: 13, fontWeight: 700, color: "var(--st-dev)" }}>Viewing as Submitter — read only</div>
-            <div style={{ fontSize: 12.5, color: "var(--text-soft)" }}>Approval decisions can only be made by the Head of IT. Switch role in the sidebar to action this queue.</div>
+            <div style={{ fontSize: 13, fontWeight: 700, color: "var(--st-dev)" }}>Read-only view</div>
+            <div style={{ fontSize: 12.5, color: "var(--text-soft)" }}>Approval decisions can only be made by the IT Director. Switch role in the sidebar to action this queue.</div>
           </div>
         </div>
       )}
@@ -48,7 +48,7 @@ export function Approvals() {
         </span>
         <div style={{ flex: 1 }}>
           <div style={{ fontSize: 19, fontWeight: 700 }}>{buckets.Pending.length} application{buckets.Pending.length !== 1 ? "s" : ""} awaiting your decision</div>
-          <div style={{ fontSize: 12.5, color: "#A9C7B6" }}>Each must be approved by the Head of IT before entering the active registry.</div>
+          <div style={{ fontSize: 12.5, color: "#A9C7B6" }}>Each must be approved by the IT Director before entering the active registry.</div>
         </div>
         {buckets.Pending.length > 0 && tab !== "Pending" && (
           <button onClick={() => setTab("Pending")} style={{ ...primaryBtn, background: "var(--green-600)" }}>Review queue</button>

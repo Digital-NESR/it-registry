@@ -1,9 +1,9 @@
 "use client";
 /* ===== App shell: store, navigation, role switching, routing ===== */
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { StoreCtx, useStore } from "./store";
 import { Icon, Avatar, Chip } from "./ui";
-import { NESR, headOfIT } from "@/lib/schema";
+import { NESR, headOfIT, people as PEOPLE } from "@/lib/schema";
 import { fetchApps, saveApp, decideApp } from "./api";
 import { Dashboard } from "./Dashboard";
 import { Registry } from "./Registry";
@@ -13,15 +13,26 @@ import { Detail } from "./Detail";
 import { useTweaks, TweaksPanel, TweakSection, TweakColor, TweakRadio } from "./TweaksPanel";
 
 const TWEAK_DEFAULTS = {
-  accent: ["#2A7E4F", "#226841", "#6AAF8E", "#C5E0D2"],
+  accent: ["#307c4c", "#25613b", "#6AAF8E", "#C5E0D2"],
   density: "Compact",
 };
 const ACCENTS = [
-  ["#2A7E4F", "#226841", "#6AAF8E", "#C5E0D2"], // NESR green (default)
+  ["#307c4c", "#25613b", "#6AAF8E", "#C5E0D2"], // NESR green (default)
   ["#0E7490", "#0B5A70", "#5EB6CC", "#CDEAF1"], // petrol teal
   ["#3B5BB5", "#2E4790", "#8BA3E0", "#D6DEF6"], // indigo
   ["#475569", "#33414F", "#94A3B2", "#DBE1E8"], // slate
 ];
+
+// Access-control roles (SSO-ready: when Azure AD is wired in, the user's name
+// and role come from the token instead of these client-side pickers).
+const ROLES = ["Business Owner", "Manager", "IT Director"];
+const ROLE_DESC = { "Business Owner": "Own applications", "Manager": "Everything", "IT Director": "Approver · all apps" };
+
+// Does this person own the application?
+const ownsApp = (app, me) => app.businessOwner === me || app.itOwner === me || app.submittedBy === me;
+// Visibility & edit rules per role.
+const canSeeApp = (app, role, me) => role !== "Business Owner" || ownsApp(app, me);
+const canEditApp = (app, role, me) => role === "Manager" || (role === "Business Owner" && ownsApp(app, me));
 
 function useToasts() {
   const [toasts, setToasts] = useState([]);
@@ -37,7 +48,8 @@ export default function App() {
   const [apps, setApps] = useState([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(null);
-  const [role, setRole] = useState("Submitter");
+  const [role, setRole] = useState("IT Director");
+  const [me, setMe] = useState(headOfIT);
   const [view, setView] = useState("dashboard");
   const [selectedId, setSelectedId] = useState(null);
   const [prefill, setPrefill] = useState(null); // edit / resubmit data into add form
@@ -69,10 +81,13 @@ export default function App() {
     document.body.classList.toggle("density-comfy", tw.density === "Comfortable");
   }, [tw]);
 
-  const me = role === "Head of IT" ? headOfIT : "Dana Aboud";
+  // Role-scoped view of the estate. Business Owners only see their own apps.
+  const visibleApps = useMemo(() => apps.filter(a => canSeeApp(a, role, me)), [apps, role, me]);
+  const canApprove = role === "IT Director";
+  const canEdit = useCallback((app) => canEditApp(app, role, me), [role, me]);
 
   const goDetail = useCallback((id) => { setSelectedId(id); setView("detail"); }, []);
-  const pendingCount = apps.filter(a => a.approvalStatus === "Pending").length;
+  const pendingCount = visibleApps.filter(a => a.approvalStatus === "Pending").length;
 
   // mutations (persist to the database, then update local state)
   const submitApp = useCallback(async (data, asDraft) => {
@@ -91,17 +106,17 @@ export default function App() {
 
   const decide = useCallback(async (id, decision, note) => {
     try {
-      const saved = await decideApp(id, decision, note, headOfIT);
+      const saved = await decideApp(id, decision, note, me);
       setApps(prev => prev.map(a => a.id === id ? saved : a));
       return saved;
     } catch (e) {
       push(e.message || "Could not record decision", "err");
       return null;
     }
-  }, [push]);
+  }, [push, me]);
 
-  const store = { apps, setApps, role, setRole, view, setView, selectedId, setSelectedId,
-    goDetail, submitApp, decide, push, me, pendingCount, prefill, setPrefill };
+  const store = { apps, visibleApps, setApps, role, setRole, me, setMe, view, setView, selectedId, setSelectedId,
+    goDetail, submitApp, decide, push, pendingCount, prefill, setPrefill, canApprove, canEdit };
 
   const selected = apps.find(a => a.id === selectedId);
 
@@ -185,11 +200,12 @@ function NavRail() {
       width: "var(--rail-w)", background: "var(--ink)", color: "#D8DAD6", flexShrink: 0,
       display: "flex", flexDirection: "column", padding: "0 0 14px" }}>
       <div style={{ padding: "22px 20px 18px", display: "flex", alignItems: "center", gap: 11 }}>
-        <div style={{ width: 34, height: 34, borderRadius: 9, background: "var(--green-600)",
-          display: "grid", placeItems: "center", boxShadow: "0 0 0 1px rgba(255,255,255,.08) inset" }}>
-          <span style={{ fontWeight: 700, fontSize: 17, color: "#fff", letterSpacing: "-.02em" }}>N</span>
+        <div style={{ width: 38, height: 38, borderRadius: 10, background: "#fff",
+          display: "grid", placeItems: "center", flexShrink: 0, boxShadow: "0 1px 3px rgba(0,0,0,.25)" }}>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/nesr-logo.png" alt="NESR" style={{ width: 28, height: 28, objectFit: "contain" }} />
         </div>
-        <div style={{ lineHeight: 1.1 }}>
+        <div style={{ lineHeight: 1.15 }}>
           <div style={{ fontWeight: 700, fontSize: 14.5, color: "#fff", letterSpacing: "-.01em" }}>NESR</div>
           <div style={{ fontSize: 11, color: "#8FA89A", fontWeight: 500, letterSpacing: ".03em" }}>IT Registry</div>
         </div>
@@ -223,14 +239,26 @@ function NavRail() {
 
       <div style={{ flex: 1 }} />
       <RoleSwitcher />
+      <div style={{ margin: "12px 16px 0", paddingTop: 12, borderTop: "1px solid rgba(255,255,255,.07)",
+        fontSize: 10, lineHeight: 1.4, color: "#6E7A70", textAlign: "center" }}>
+        National Energy Services Reunited Corp.
+      </div>
     </nav>
   );
 }
 
 /* ---------- role switcher ---------- */
+const darkSelect = {
+  width: "100%", padding: "7px 9px", borderRadius: 7, fontSize: 12, fontWeight: 600, fontFamily: "inherit",
+  background: "rgba(0,0,0,.28)", color: "#fff", border: "1px solid rgba(255,255,255,.1)", appearance: "none",
+};
 function RoleSwitcher() {
-  const { role, setRole, me, push } = useStore();
-  const roles = ["Submitter", "Head of IT"];
+  const { role, setRole, me, setMe, push } = useStore();
+  const logout = async () => {
+    try { await fetch("/api/logout", { method: "POST" }); } catch { /* ignore */ }
+    window.location.href = "/login";
+  };
+  const people = [...new Set(PEOPLE)].sort();
   return (
     <div style={{ margin: "10px 16px 0", padding: "12px", background: "rgba(255,255,255,.04)", borderRadius: 11,
       border: "1px solid rgba(255,255,255,.07)" }}>
@@ -238,20 +266,27 @@ function RoleSwitcher() {
         <Avatar name={me} size={32} />
         <div style={{ lineHeight: 1.2, minWidth: 0 }}>
           <div style={{ fontSize: 12.5, fontWeight: 600, color: "#fff", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{me}</div>
-          <div style={{ fontSize: 11, color: "#8FA89A" }}>{role === "Head of IT" ? "Approver" : "Requester"}</div>
+          <div style={{ fontSize: 11, color: "#8FA89A" }}>{role}</div>
         </div>
       </div>
       <div style={{ fontSize: 10.5, color: "#7E867E", fontWeight: 600, letterSpacing: ".06em", textTransform: "uppercase", marginBottom: 6, display: "flex", alignItems: "center", gap: 5 }}>
-        <Icon name="switch" size={12} /> View as
+        <Icon name="switch" size={12} /> View as <span style={{ color: "#5E6B63", fontWeight: 500, textTransform: "none", letterSpacing: 0 }}>(until SSO)</span>
       </div>
-      <div style={{ display: "flex", background: "rgba(0,0,0,.25)", borderRadius: 8, padding: 3, gap: 3 }}>
-        {roles.map(r => (
-          <button key={r} onClick={() => { setRole(r); push(`Switched to ${r} view`, "info"); }} style={{
-            flex: 1, padding: "6px 4px", borderRadius: 6, border: "none", fontSize: 11.5, fontWeight: 600,
-            background: role === r ? "var(--green-600)" : "transparent", color: role === r ? "#fff" : "#9AA29A",
-            transition: "background .15s" }}>{r}</button>
-        ))}
+      <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+        <select value={me} onChange={(e) => setMe(e.target.value)} style={darkSelect} title="Who am I">
+          {people.map((p) => <option key={p} value={p} style={{ color: "#000" }}>{p}</option>)}
+        </select>
+        <select value={role} onChange={(e) => { setRole(e.target.value); push(`Now viewing as ${e.target.value}`, "info"); }} style={darkSelect} title="Role">
+          {ROLES.map((r) => <option key={r} value={r} style={{ color: "#000" }}>{r} — {ROLE_DESC[r]}</option>)}
+        </select>
       </div>
+      <button onClick={logout} style={{ marginTop: 10, width: "100%", display: "flex", alignItems: "center",
+        justifyContent: "center", gap: 7, padding: "7px 4px", borderRadius: 7, border: "none",
+        background: "transparent", color: "#8FA89A", fontSize: 11.5, fontWeight: 600 }}
+        onMouseEnter={e => e.currentTarget.style.color = "#fff"}
+        onMouseLeave={e => e.currentTarget.style.color = "#8FA89A"}>
+        <Icon name="logout" size={13} /> Sign out
+      </button>
     </div>
   );
 }
@@ -281,7 +316,8 @@ function TopBar() {
       </button>
       <div style={{ height: 26, width: 1, background: "var(--line)" }} />
       <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-        <Chip color={role === "Head of IT" ? "--st-active" : "--st-dev"} bg={role === "Head of IT" ? "--st-active-bg" : "--st-dev-bg"}>
+        <Chip color={role === "IT Director" ? "--st-active" : role === "Manager" ? "--st-dev" : "--st-review"}
+          bg={role === "IT Director" ? "--st-active-bg" : role === "Manager" ? "--st-dev-bg" : "--st-review-bg"}>
           {role}
         </Chip>
       </div>

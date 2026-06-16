@@ -1,8 +1,8 @@
 /* ===== NESR IT Application Registry — design tokens & base ===== */
 :root {
-  /* brand palette (locked) */
-  --green-600: #2A7E4F;   /* primary */
-  --green-700: #226841;
+  /* brand palette — NESR Green per UI_GUIDELINES.md (#307c4c) */
+  --green-600: #307c4c;   /* primary */
+  --green-700: #25613b;
   --green-400: #6AAF8E;
   --green-100: #C5E0D2;
   --ink: #1F1F1D;         /* near-black */
@@ -10,18 +10,18 @@
   --gray-300: #D1D3D4;
   --white: #FFFFFF;
 
-  /* derived neutrals */
+  /* derived neutrals (slate-tinted, per guidelines) */
   --bg: #F4F6F4;
   --surface: #FFFFFF;
-  --surface-2: #FAFBFA;
-  --line: #E5E8E5;
-  --line-strong: #D1D3D4;
-  --text: #1F1F1D;
-  --text-soft: #58595B;
-  --text-faint: #8A8C8A;
+  --surface-2: #F8FAFC;   /* slate-50 */
+  --line: #E2E8F0;        /* slate-200 */
+  --line-strong: #CBD5E1; /* slate-300 */
+  --text: #0F172A;        /* slate-900 */
+  --text-soft: #64748B;   /* slate-500 */
+  --text-faint: #94A3B8;  /* slate-400 */
 
   /* semantic status */
-  --st-active: #2A7E4F;   --st-active-bg: #E4F0EA;
+  --st-active: #307c4c;   --st-active-bg: #E4F0EA;
   --st-dev: #2563A8;      --st-dev-bg: #E5EEF7;
   --st-review: #B7791F;   --st-review-bg: #FBF1DD;
   --st-sunset: #C05621;   --st-sunset-bg: #FBE9DD;
@@ -29,15 +29,15 @@
   --st-reject: #B42318;   --st-reject-bg: #FBE7E5;
   --st-draft: #6B6D6B;    --st-draft-bg: #EDEFED;
 
-  --radius: 10px;
-  --radius-sm: 7px;
-  --shadow-sm: 0 1px 2px rgba(31,31,29,.06), 0 1px 1px rgba(31,31,29,.04);
-  --shadow-md: 0 4px 16px rgba(31,31,29,.08), 0 1px 3px rgba(31,31,29,.06);
-  --shadow-lg: 0 16px 48px rgba(31,31,29,.16);
-  --rail-w: 232px;
+  --radius: 16px;         /* rounded-2xl */
+  --radius-sm: 10px;
+  --shadow-sm: 0 1px 2px rgba(15,23,42,.06), 0 1px 1px rgba(15,23,42,.04);
+  --shadow-md: 0 4px 16px rgba(15,23,42,.08), 0 1px 3px rgba(15,23,42,.06);
+  --shadow-lg: 0 16px 48px rgba(15,23,42,.16);
+  --rail-w: 248px;
 
-  --font: "IBM Plex Sans", system-ui, sans-serif;
-  --mono: "IBM Plex Mono", ui-monospace, monospace;
+  --font: var(--font-geist-sans), system-ui, -apple-system, "Segoe UI", sans-serif;
+  --mono: var(--font-geist-mono), ui-monospace, "SFMono-Regular", monospace;
 }
 
 * { box-sizing: border-box; }

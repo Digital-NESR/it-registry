@@ -37,8 +37,9 @@ const COLDEFS = {
   businessCriticality: { label: "Criticality", w: 90, render: (a) => <CritChip value={a.businessCriticality} /> },
   businessOwner: { label: "Business Owner", w: 165, render: (a) => <OwnerCell name={a.businessOwner} /> },
   itOwner: { label: "IT Owner", w: 165, render: (a) => <OwnerCell name={a.itOwner} /> },
-  classification: { label: "Classification", w: 110 },
-  hostingModel: { label: "Hosting", w: 120 },
+  sourcing: { label: "Sourcing", w: 110 },
+  hostingModel: { label: "Deployment", w: 130 },
+  hostingLocation: { label: "Hosted At", w: 170 },
   cloudProvider: { label: "Cloud", w: 90 },
   architectureType: { label: "Architecture", w: 120 },
   tco: { label: "TCO", w: 95, align: "right", render: (a) => <span className="num">{fmtMoney(a.tco)}</span> },
@@ -46,11 +47,13 @@ const COLDEFS = {
   dataClassification: { label: "Data Class", w: 110 },
   containsPii: { label: "PII", w: 70, render: (a) => <PiiCell v={a.containsPii} /> },
   openVulnerabilities: { label: "Vulns", w: 90, render: (a) => <span style={{ color: VULN_C[a.openVulnerabilities], fontWeight: 600, fontSize: 12.5 }}>{a.openVulnerabilities}</span> },
-  drTier: { label: "DR Tier", w: 130 },
+  drAvailability: { label: "DR", w: 75, render: (a) => <span style={{ fontWeight: 600, color: a.drAvailability === "Yes" ? "var(--st-active)" : "var(--text-faint)" }}>{a.drAvailability || "—"}</span> },
+  hasBackup: { label: "Backup", w: 85, render: (a) => <span style={{ fontWeight: 600, color: a.hasBackup === "Yes" ? "var(--st-active)" : "var(--st-reject)" }}>{a.hasBackup || "—"}</span> },
   supportTier: { label: "Support", w: 150 },
   slaAvailability: { label: "SLA", w: 80, render: (a) => <span className="num">{a.slaAvailability}</span> },
   monitoringTool: { label: "Monitoring", w: 110 },
-  activeUsers: { label: "Active Users", w: 100, align: "right", render: (a) => <span className="num">{fmtNum(a.activeUsers)}</span> },
+  appVendor: { label: "Vendor", w: 150 },
+  totalUserBase: { label: "Users", w: 90, align: "right", render: (a) => <span className="num">{fmtNum(a.totalUserBase)}</span> },
   strategicAlignment: { label: "Strategic Fit", w: 200 },
   integrationComplexity: { label: "Integration", w: 110 },
   ssoProvider: { label: "SSO", w: 110 },
@@ -61,16 +64,16 @@ const COLDEFS = {
 
 const COL_GROUPS = [
   { key: "overview", label: "Overview", cols: ["status", "approvalStatus", "department", "businessCriticality", "tco"] },
-  { key: "ownership", label: "Ownership", cols: ["businessOwner", "itOwner", "classification"] },
-  { key: "technical", label: "Technical", cols: ["hostingModel", "cloudProvider", "architectureType", "integrationComplexity", "ssoProvider"] },
-  { key: "risk", label: "Risk & Compliance", cols: ["dataClassification", "containsPii", "openVulnerabilities", "drTier"] },
+  { key: "ownership", label: "Ownership", cols: ["businessOwner", "itOwner", "sourcing"] },
+  { key: "technical", label: "Technical", cols: ["hostingModel", "hostingLocation", "cloudProvider", "architectureType", "integrationComplexity", "ssoProvider"] },
+  { key: "risk", label: "Risk & Compliance", cols: ["dataClassification", "containsPii", "openVulnerabilities", "drAvailability", "hasBackup"] },
   { key: "financial", label: "Financial", cols: ["annualLicenseCost", "contractRenewalDate"] },
-  { key: "ops", label: "Operations", cols: ["supportTier", "slaAvailability", "monitoringTool", "nextReviewDate"] },
-  { key: "value", label: "Business Value", cols: ["activeUsers", "strategicAlignment", "goLiveDate"] },
+  { key: "vendor", label: "Vendor & Support", cols: ["appVendor", "supportTier", "slaAvailability", "monitoringTool", "nextReviewDate"] },
+  { key: "value", label: "Business Value", cols: ["totalUserBase", "strategicAlignment", "goLiveDate"] },
 ];
 
 export function Registry() {
-  const { apps, goDetail, push, setView, role } = useStore();
+  const { visibleApps: apps, goDetail, push, setView } = useStore();
   const [q, setQ] = useState("");
   const [filters, setFilters] = useState({});
   const [groups, setGroups] = useState(["overview", "ownership"]);
@@ -152,7 +155,7 @@ export function Registry() {
         <button onClick={() => { exportCSV(rows, `NESR-registry-${NESR.today}.csv`); push(`Exported ${rows.length} applications to CSV`); }} style={primaryBtn}>
           <Icon name="export" size={15} /> Export CSV
         </button>
-        {role === "Submitter" && <button onClick={() => setView("add")} style={{ ...primaryBtn, background: "var(--ink)" }}><Icon name="plus" size={15} /> New</button>}
+        <button onClick={() => setView("add")} style={{ ...primaryBtn, background: "var(--ink)" }}><Icon name="plus" size={15} /> New</button>
       </div>
 
       <div style={{ fontSize: 12, color: "var(--text-faint)", marginBottom: 8 }} className="num">

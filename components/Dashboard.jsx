@@ -116,7 +116,7 @@ function SegBar({ data, colorMap, onSeg, activeKey }) {
 }
 
 export function Dashboard() {
-  const { apps, goDetail, push, setView } = useStore();
+  const { visibleApps: apps, goDetail, push, setView } = useStore();
   const [filters, setFilters] = useState({}); // {department, status, businessCriticality, hostingModel}
 
   const toggle = (key, val) => setFilters(f => ({ ...f, [key]: f[key] === val ? undefined : val }));
