@@ -1,9 +1,11 @@
 /* Server-side identity & permission resolution.
-   Role is authoritative from the database (system admins from env > user_roles
-   > Business Owner default), factoring time-bound approval delegation. */
+   Lives in server/ (not the type:module lib/) so its next-auth import keeps
+   standard CommonJS interop. Role is authoritative from the database
+   (system admins from env > user_roles > Business Owner), factoring
+   time-bound approval delegation. */
 import { getServerSession } from "next-auth";
 import { authOptions } from "./auth-options.js";
-import { getUserRecord, getApprover } from "./db.js";
+import { getUserRecord, getApprover } from "../lib/db.js";
 
 const sameEmail = (a, b) => !!a && !!b && a.toLowerCase() === b.toLowerCase();
 
@@ -59,7 +61,5 @@ export async function getActor(fallbackName) {
 export async function requireAdmin() {
   const session = await getServerSession(authOptions);
   if (session?.user?.email) return { ok: isSystemAdminEmail(session.user.email), via: "sso", email: session.user.email };
-  // No SSO session — the only other way past middleware is the password cookie,
-  // which is the bootstrap/break-glass admin.
   return { ok: true, via: "password", email: null };
 }

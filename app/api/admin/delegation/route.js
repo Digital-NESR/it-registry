@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { ensureSchema, getApprover, setDelegation, logAudit } from "@/lib/db";
-import { requireAdmin, getActor } from "@/lib/identity";
+import { requireAdmin, getActor } from "@/server/identity";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";

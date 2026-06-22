@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { ensureSchema, getApp, updateApp, deleteApp, reconcileLinks, logAudit } from "@/lib/db";
-import { getActor } from "@/lib/identity";
+import { getActor } from "@/server/identity";
 import { today } from "@/lib/schema";
 import { pickFields, deriveAlias } from "../route";
 

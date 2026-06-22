@@ -1,16 +1,19 @@
 /* NextAuth (Auth.js v4) configuration — Microsoft Entra ID (Azure AD) via OIDC.
 
+   Lives in server/ (NOT the type:module lib/ folder) so next-auth is only ever
+   imported from a normal CommonJS-context module — this keeps webpack's CJS/ESM
+   interop correct for the /api/auth route on Vercel.
+
    The provider is only registered when the three Entra credentials are present,
    so the app runs fine (password fallback) before SSO is configured.
 
    Roles are NOT assigned here — they're resolved authoritatively in /api/me
-   from the database (system admins from env > user_roles > Business Owner).
-   On sign-in we upsert the user's profile and write an audit entry.
+   from the database. On sign-in we upsert the user's profile and audit it.
 
    Required env: AZURE_AD_CLIENT_ID, AZURE_AD_CLIENT_SECRET, AZURE_AD_TENANT_ID,
    NEXTAUTH_SECRET, NEXTAUTH_URL. */
 import AzureADProvider from "next-auth/providers/azure-ad";
-import { upsertProfile, logAudit } from "./db.js";
+import { upsertProfile, logAudit } from "../lib/db.js";
 
 const clientId = process.env.AZURE_AD_CLIENT_ID;
 const clientSecret = process.env.AZURE_AD_CLIENT_SECRET;

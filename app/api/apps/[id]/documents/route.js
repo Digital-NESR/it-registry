@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { ensureSchema, getApp, insertDocument, logAudit } from "@/lib/db";
-import { getActor } from "@/lib/identity";
+import { getActor } from "@/server/identity";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";

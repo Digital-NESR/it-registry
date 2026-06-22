@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { ensureSchema, getApp, updateApp, logAudit } from "@/lib/db";
-import { getActor } from "@/lib/identity";
+import { getActor } from "@/server/identity";
 import { today, headOfIT } from "@/lib/schema";
 
 export const runtime = "nodejs";

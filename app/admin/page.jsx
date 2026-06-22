@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { ensureSchema } from "@/lib/db";
-import { requireAdmin } from "@/lib/identity";
+import { requireAdmin } from "@/server/identity";
 import AdminConsole from "@/components/AdminConsole";
 
 export const dynamic = "force-dynamic";

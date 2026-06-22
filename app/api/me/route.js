@@ -1,10 +1,10 @@
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth-options";
+import { authOptions } from "@/server/auth-options";
 import { verifySession, SESSION_COOKIE } from "@/lib/session";
 import { ensureSchema } from "@/lib/db";
-import { resolveIdentity } from "@/lib/identity";
+import { resolveIdentity } from "@/server/identity";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";

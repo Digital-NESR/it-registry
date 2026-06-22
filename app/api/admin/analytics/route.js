@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { ensureSchema, getAnalytics } from "@/lib/db";
-import { requireAdmin } from "@/lib/identity";
+import { requireAdmin } from "@/server/identity";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
