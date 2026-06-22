@@ -1,19 +1,21 @@
 import { NextResponse } from "next/server";
+import { getToken } from "next-auth/jwt";
 import { verifySession, SESSION_COOKIE } from "@/lib/session";
 
 // Everything except the public auth endpoints, Next internals and static assets
-// requires a valid session. Unauthenticated page loads redirect to /login;
-// unauthenticated API calls get a 401.
+// requires a session — either a Microsoft Entra SSO session (NextAuth) or the
+// password fallback. Unauthenticated page loads redirect to /login; API calls 401.
 export const config = {
   matcher: [
-    "/((?!login|api/login|api/logout|_next/static|_next/image|favicon.ico|icon.png|nesr-logo|.*\\.(?:png|jpg|jpeg|svg|ico|webp)$).*)",
+    "/((?!login|api/login|api/logout|api/auth|_next/static|_next/image|favicon.ico|icon.png|nesr-logo|.*\\.(?:png|jpg|jpeg|svg|ico|webp)$).*)",
   ],
 };
 
 export async function middleware(req) {
-  const token = req.cookies.get(SESSION_COOKIE)?.value;
-  const session = await verifySession(token);
-  if (session) return NextResponse.next();
+  const secret = process.env.NEXTAUTH_SECRET || process.env.SESSION_SECRET;
+  const ssoToken = await getToken({ req, secret });
+  const passwordSession = await verifySession(req.cookies.get(SESSION_COOKIE)?.value);
+  if (ssoToken || passwordSession) return NextResponse.next();
 
   const { pathname } = req.nextUrl;
   if (pathname.startsWith("/api/")) {

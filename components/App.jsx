@@ -1,6 +1,7 @@
 "use client";
 /* ===== App shell: store, navigation, role switching, routing ===== */
 import { useState, useEffect, useCallback, useMemo } from "react";
+import { signOut } from "next-auth/react";
 import { StoreCtx, useStore } from "./store";
 import { Icon, Avatar, Chip } from "./ui";
 import { NESR, headOfIT, people as PEOPLE } from "@/lib/schema";
@@ -50,6 +51,7 @@ export default function App() {
   const [loadError, setLoadError] = useState(null);
   const [role, setRole] = useState("IT Director");
   const [me, setMe] = useState(headOfIT);
+  const [identityVia, setIdentityVia] = useState("password");
   const [view, setView] = useState("dashboard");
   const [selectedId, setSelectedId] = useState(null);
   const [prefill, setPrefill] = useState(null); // edit / resubmit data into add form
@@ -69,6 +71,16 @@ export default function App() {
     }
   }, []);
   useEffect(() => { reload(); }, [reload]);
+
+  // Identity: when signed in via Microsoft SSO, drive name + role from the
+  // token (and lock the switcher). Password fallback keeps the manual switcher.
+  useEffect(() => {
+    fetch("/api/me").then((r) => (r.ok ? r.json() : null)).then((m) => {
+      if (!m) return;
+      setIdentityVia(m.via);
+      if (m.via === "sso") { if (m.name) setMe(m.name); if (m.role) setRole(m.role); }
+    }).catch(() => {});
+  }, []);
 
   // apply tweaks to CSS variables / body class
   useEffect(() => {
@@ -115,7 +127,7 @@ export default function App() {
     }
   }, [push, me]);
 
-  const store = { apps, visibleApps, setApps, role, setRole, me, setMe, view, setView, selectedId, setSelectedId,
+  const store = { apps, visibleApps, setApps, role, setRole, me, setMe, identityVia, view, setView, selectedId, setSelectedId,
     goDetail, submitApp, decide, push, pendingCount, prefill, setPrefill, canApprove, canEdit };
 
   const selected = apps.find(a => a.id === selectedId);
@@ -253,8 +265,10 @@ const darkSelect = {
   background: "rgba(0,0,0,.28)", color: "#fff", border: "1px solid rgba(255,255,255,.1)", appearance: "none",
 };
 function RoleSwitcher() {
-  const { role, setRole, me, setMe, push } = useStore();
+  const { role, setRole, me, setMe, push, identityVia } = useStore();
+  const isSSO = identityVia === "sso";
   const logout = async () => {
+    if (isSSO) { signOut({ callbackUrl: "/login" }); return; }
     try { await fetch("/api/logout", { method: "POST" }); } catch { /* ignore */ }
     window.location.href = "/login";
   };
@@ -262,24 +276,26 @@ function RoleSwitcher() {
   return (
     <div style={{ margin: "10px 16px 0", padding: "12px", background: "rgba(255,255,255,.04)", borderRadius: 11,
       border: "1px solid rgba(255,255,255,.07)" }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 9, marginBottom: 11 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 9, marginBottom: isSSO ? 0 : 11 }}>
         <Avatar name={me} size={32} />
         <div style={{ lineHeight: 1.2, minWidth: 0 }}>
           <div style={{ fontSize: 12.5, fontWeight: 600, color: "#fff", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{me}</div>
-          <div style={{ fontSize: 11, color: "#8FA89A" }}>{role}</div>
+          <div style={{ fontSize: 11, color: "#8FA89A" }}>{role}{isSSO && " · via Microsoft SSO"}</div>
         </div>
       </div>
-      <div style={{ fontSize: 10.5, color: "#7E867E", fontWeight: 600, letterSpacing: ".06em", textTransform: "uppercase", marginBottom: 6, display: "flex", alignItems: "center", gap: 5 }}>
-        <Icon name="switch" size={12} /> View as <span style={{ color: "#5E6B63", fontWeight: 500, textTransform: "none", letterSpacing: 0 }}>(until SSO)</span>
-      </div>
-      <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-        <select value={me} onChange={(e) => setMe(e.target.value)} style={darkSelect} title="Who am I">
-          {people.map((p) => <option key={p} value={p} style={{ color: "#000" }}>{p}</option>)}
-        </select>
-        <select value={role} onChange={(e) => { setRole(e.target.value); push(`Now viewing as ${e.target.value}`, "info"); }} style={darkSelect} title="Role">
-          {ROLES.map((r) => <option key={r} value={r} style={{ color: "#000" }}>{r} — {ROLE_DESC[r]}</option>)}
-        </select>
-      </div>
+      {!isSSO && (<>
+        <div style={{ fontSize: 10.5, color: "#7E867E", fontWeight: 600, letterSpacing: ".06em", textTransform: "uppercase", margin: "11px 0 6px", display: "flex", alignItems: "center", gap: 5 }}>
+          <Icon name="switch" size={12} /> View as <span style={{ color: "#5E6B63", fontWeight: 500, textTransform: "none", letterSpacing: 0 }}>(until SSO)</span>
+        </div>
+        <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+          <select value={me} onChange={(e) => setMe(e.target.value)} style={darkSelect} title="Who am I">
+            {people.map((p) => <option key={p} value={p} style={{ color: "#000" }}>{p}</option>)}
+          </select>
+          <select value={role} onChange={(e) => { setRole(e.target.value); push(`Now viewing as ${e.target.value}`, "info"); }} style={darkSelect} title="Role">
+            {ROLES.map((r) => <option key={r} value={r} style={{ color: "#000" }}>{r} — {ROLE_DESC[r]}</option>)}
+          </select>
+        </div>
+      </>)}
       <button onClick={logout} style={{ marginTop: 10, width: "100%", display: "flex", alignItems: "center",
         justifyContent: "center", gap: 7, padding: "7px 4px", borderRadius: 7, border: "none",
         background: "transparent", color: "#8FA89A", fontSize: 11.5, fontWeight: 600 }}

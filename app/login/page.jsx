@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 function MicrosoftLogo() {
   return (
@@ -18,8 +18,20 @@ export default function LoginPage() {
   const [error, setError] = useState("");
   const [note, setNote] = useState("");
   const [busy, setBusy] = useState(false);
+  const [ssoEnabled, setSsoEnabled] = useState(false);
+
+  useEffect(() => {
+    fetch("/api/auth/providers")
+      .then((r) => (r.ok ? r.json() : {}))
+      .then((p) => setSsoEnabled(!!(p && p["azure-ad"])))
+      .catch(() => {});
+  }, []);
 
   const onSSO = () => {
+    if (ssoEnabled) {
+      window.location.href = "/api/auth/signin/azure-ad?callbackUrl=" + encodeURIComponent("/");
+      return;
+    }
     setNote("Microsoft SSO isn’t configured yet — use the access password below for now.");
     setShowPw(true);
   };
