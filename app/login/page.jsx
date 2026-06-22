@@ -1,5 +1,17 @@
 "use client";
 import { useState, useEffect } from "react";
+import { signIn } from "next-auth/react";
+
+// Friendly text for the ?error= NextAuth sends back to /login on failure.
+const ERR = {
+  Configuration: "SSO is misconfigured on the server (check AZURE_AD_* / NEXTAUTH_SECRET / NEXTAUTH_URL).",
+  AccessDenied: "Access was denied. Your account may not be permitted for this app.",
+  OAuthSignin: "Couldn't start the Microsoft sign-in. Check the provider configuration.",
+  OAuthCallback: "Microsoft sign-in failed on callback. Check the redirect URI and NEXTAUTH_URL.",
+  Callback: "Sign-in callback failed (often NEXTAUTH_URL, redirect URI, or the database being unreachable).",
+  OAuthAccountNotLinked: "This email is already linked to a different sign-in method.",
+  default: "Sign-in failed. See details below or check the server logs.",
+};
 
 function MicrosoftLogo() {
   return (
@@ -25,11 +37,15 @@ export default function LoginPage() {
       .then((r) => (r.ok ? r.json() : {}))
       .then((p) => setSsoEnabled(!!(p && p["azure-ad"])))
       .catch(() => {});
+    // Surface a NextAuth error passed back as ?error= so failures are visible.
+    const code = new URLSearchParams(window.location.search).get("error");
+    if (code) { setError(ERR[code] || ERR.default + ` (code: ${code})`); setShowPw(true); }
   }, []);
 
   const onSSO = () => {
     if (ssoEnabled) {
-      window.location.href = "/api/auth/signin/azure-ad?callbackUrl=" + encodeURIComponent("/");
+      // Use the NextAuth client flow (handles CSRF + provider redirect reliably).
+      signIn("azure-ad", { callbackUrl: "/" });
       return;
     }
     setNote("Microsoft SSO isn’t configured yet — use the access password below for now.");

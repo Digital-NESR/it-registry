@@ -54,15 +54,21 @@ export const authOptions = {
   },
   events: {
     async signIn({ profile }) {
-      const email = profile?.email || profile?.preferred_username || profile?.upn;
-      if (!email) return;
-      const displayName = profile?.name || email;
-      const jobTitle = profile?.jobTitle || profile?.job_title || null;
-      await upsertProfile({ email, displayName, jobTitle });
-      await logAudit({
-        actorEmail: email, actorName: displayName, action: "auth.login",
-        entityType: "auth", summary: `${displayName} signed in via Microsoft SSO`,
-      });
+      // Profile upsert + audit must NEVER block sign-in (e.g. if the DB is
+      // temporarily unreachable from the serverless function).
+      try {
+        const email = profile?.email || profile?.preferred_username || profile?.upn;
+        if (!email) return;
+        const displayName = profile?.name || email;
+        const jobTitle = profile?.jobTitle || profile?.job_title || null;
+        await upsertProfile({ email, displayName, jobTitle });
+        await logAudit({
+          actorEmail: email, actorName: displayName, action: "auth.login",
+          entityType: "auth", summary: `${displayName} signed in via Microsoft SSO`,
+        });
+      } catch (e) {
+        console.error("signIn event failed (non-fatal):", e.message);
+      }
     },
   },
 };
