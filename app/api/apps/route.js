@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
-import { ensureSchema, listApps, insertApp, patchApp, getApp, reconcileLinks } from "@/lib/db";
+import { ensureSchema, listApps, insertApp, patchApp, getApp, reconcileLinks, logAudit } from "@/lib/db";
+import { getActor } from "@/lib/identity";
 import { persistedFieldKeys, fieldByKey, today } from "@/lib/schema";
 
 export const runtime = "nodejs";
@@ -55,6 +56,10 @@ export async function POST(req) {
       saved = await patchApp(saved.id, { appId: "NESR-APP-" + String(1000 + saved.id * 7).slice(0, 4) });
     }
     await reconcileLinks(saved);
+    const actor = await getActor(body.me);
+    await logAudit({ ...actor, action: body.asDraft ? "application.draft" : "application.create",
+      entityType: "application", entityId: saved.id,
+      summary: `${actor.actorName} ${body.asDraft ? "saved draft" : "submitted"} “${saved.name}”` });
     return NextResponse.json(await getApp(saved.id), { status: 201 });
   } catch (e) {
     return NextResponse.json({ error: e.message }, { status: 500 });

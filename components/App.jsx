@@ -52,6 +52,9 @@ export default function App() {
   const [role, setRole] = useState("IT Director");
   const [me, setMe] = useState(headOfIT);
   const [identityVia, setIdentityVia] = useState("password");
+  const [ssoPerms, setSsoPerms] = useState(null); // {scope, canApprove, canEditAll, isAdmin}
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [jobTitle, setJobTitle] = useState(null);
   const [view, setView] = useState("dashboard");
   const [selectedId, setSelectedId] = useState(null);
   const [prefill, setPrefill] = useState(null); // edit / resubmit data into add form
@@ -78,7 +81,16 @@ export default function App() {
     fetch("/api/me").then((r) => (r.ok ? r.json() : null)).then((m) => {
       if (!m) return;
       setIdentityVia(m.via);
-      if (m.via === "sso") { if (m.name) setMe(m.name); if (m.role) setRole(m.role); }
+      if (m.via === "sso") {
+        if (m.name) setMe(m.name);
+        if (m.role) setRole(m.role);
+        setJobTitle(m.jobTitle || null);
+        setSsoPerms({ scope: m.scope, canApprove: m.canApprove, canEditAll: m.canEditAll });
+        setIsAdmin(!!m.isAdmin);
+      } else {
+        setSsoPerms(null);
+        setIsAdmin(!!m.isAdmin); // password = break-glass admin
+      }
     }).catch(() => {});
   }, []);
 
@@ -93,10 +105,18 @@ export default function App() {
     document.body.classList.toggle("density-comfy", tw.density === "Comfortable");
   }, [tw]);
 
-  // Role-scoped view of the estate. Business Owners only see their own apps.
-  const visibleApps = useMemo(() => apps.filter(a => canSeeApp(a, role, me)), [apps, role, me]);
-  const canApprove = role === "IT Director";
-  const canEdit = useCallback((app) => canEditApp(app, role, me), [role, me]);
+  // Role-scoped view of the estate. SSO uses server-resolved permissions
+  // (incl. system admin + active delegation); password mode uses the switcher.
+  const isSSO = identityVia === "sso";
+  const visibleApps = useMemo(
+    () => apps.filter(a => (isSSO ? (ssoPerms?.scope === "all" || ownsApp(a, me)) : canSeeApp(a, role, me))),
+    [apps, isSSO, ssoPerms, role, me]
+  );
+  const canApprove = isSSO ? !!ssoPerms?.canApprove : role === "IT Director";
+  const canEdit = useCallback(
+    (app) => (isSSO ? (ssoPerms?.canEditAll || (ssoPerms?.scope === "own" && ownsApp(app, me))) : canEditApp(app, role, me)),
+    [isSSO, ssoPerms, role, me]
+  );
 
   const goDetail = useCallback((id) => { setSelectedId(id); setView("detail"); }, []);
   const pendingCount = visibleApps.filter(a => a.approvalStatus === "Pending").length;
@@ -127,7 +147,7 @@ export default function App() {
     }
   }, [push, me]);
 
-  const store = { apps, visibleApps, setApps, role, setRole, me, setMe, identityVia, view, setView, selectedId, setSelectedId,
+  const store = { apps, visibleApps, setApps, role, setRole, me, setMe, identityVia, isAdmin, jobTitle, view, setView, selectedId, setSelectedId,
     goDetail, submitApp, decide, push, pendingCount, prefill, setPrefill, canApprove, canEdit };
 
   const selected = apps.find(a => a.id === selectedId);
@@ -265,7 +285,7 @@ const darkSelect = {
   background: "rgba(0,0,0,.28)", color: "#fff", border: "1px solid rgba(255,255,255,.1)", appearance: "none",
 };
 function RoleSwitcher() {
-  const { role, setRole, me, setMe, push, identityVia } = useStore();
+  const { role, setRole, me, setMe, push, identityVia, jobTitle } = useStore();
   const isSSO = identityVia === "sso";
   const logout = async () => {
     if (isSSO) { signOut({ callbackUrl: "/login" }); return; }
@@ -277,10 +297,11 @@ function RoleSwitcher() {
     <div style={{ margin: "10px 16px 0", padding: "12px", background: "rgba(255,255,255,.04)", borderRadius: 11,
       border: "1px solid rgba(255,255,255,.07)" }}>
       <div style={{ display: "flex", alignItems: "center", gap: 9, marginBottom: isSSO ? 0 : 11 }}>
-        <Avatar name={me} size={32} />
-        <div style={{ lineHeight: 1.2, minWidth: 0 }}>
+        <Avatar name={me} size={34} />
+        <div style={{ lineHeight: 1.25, minWidth: 0 }}>
           <div style={{ fontSize: 12.5, fontWeight: 600, color: "#fff", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{me}</div>
-          <div style={{ fontSize: 11, color: "#8FA89A" }}>{role}{isSSO && " · via Microsoft SSO"}</div>
+          {isSSO && jobTitle && <div style={{ fontSize: 11, color: "#AFB6AF", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{jobTitle}</div>}
+          <div style={{ fontSize: 10.5, color: "#8FA89A" }}>{role}{isSSO && " · Microsoft SSO"}</div>
         </div>
       </div>
       {!isSSO && (<>

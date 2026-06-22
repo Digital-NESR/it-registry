@@ -3,25 +3,28 @@ import { cookies } from "next/headers";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth-options";
 import { verifySession, SESSION_COOKIE } from "@/lib/session";
+import { ensureSchema } from "@/lib/db";
+import { resolveIdentity } from "@/lib/identity";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-// GET /api/me — the current identity, from SSO (Entra) or the password fallback.
+// GET /api/me — the current identity + permissions, from SSO (Entra) or password.
 export async function GET() {
-  const session = await getServerSession(authOptions);
-  if (session?.user && (session.user.email || session.user.name)) {
-    const u = session.user;
-    return NextResponse.json({
-      via: "sso",
-      name: u.name || u.email,
-      email: u.email || null,
-      role: u.role || "Business Owner",
-      department: u.department || null,
-      jobTitle: u.jobTitle || null,
-    });
+  try {
+    await ensureSchema();
+    const session = await getServerSession(authOptions);
+    if (session?.user?.email) {
+      const id = await resolveIdentity(session.user.email, session.user.name);
+      return NextResponse.json({ via: "sso", ...id, jobTitle: session.user.jobTitle || id.jobTitle });
+    }
+    const custom = await verifySession(cookies().get(SESSION_COOKIE)?.value);
+    if (custom) {
+      // Break-glass password access = full system admin; manual switcher drives view.
+      return NextResponse.json({ via: "password", name: custom.user || "NESR User", role: null, isAdmin: true });
+    }
+    return NextResponse.json({ via: "none" }, { status: 401 });
+  } catch (e) {
+    return NextResponse.json({ error: e.message }, { status: 500 });
   }
-  const custom = await verifySession(cookies().get(SESSION_COOKIE)?.value);
-  if (custom) return NextResponse.json({ via: "password", name: custom.user || "NESR User", role: null });
-  return NextResponse.json({ via: "none" }, { status: 401 });
 }

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
-import { ensureSchema, getApp, insertDocument } from "@/lib/db";
+import { ensureSchema, getApp, insertDocument, logAudit } from "@/lib/db";
+import { getActor } from "@/lib/identity";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -34,6 +35,9 @@ export async function POST(req, { params }) {
         uploadedBy: String(uploadedBy),
       }));
     }
+    const actor = await getActor(String(uploadedBy));
+    await logAudit({ ...actor, action: "document.upload", entityType: "application", entityId: id,
+      summary: `${actor.actorName} uploaded ${saved.length} document${saved.length > 1 ? "s" : ""}` });
     return NextResponse.json({ documents: saved }, { status: 201 });
   } catch (e) {
     return NextResponse.json({ error: e.message }, { status: 500 });

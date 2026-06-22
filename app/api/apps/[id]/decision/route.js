@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
-import { ensureSchema, getApp, updateApp } from "@/lib/db";
+import { ensureSchema, getApp, updateApp, logAudit } from "@/lib/db";
+import { getActor } from "@/lib/identity";
 import { today, headOfIT } from "@/lib/schema";
 
 export const runtime = "nodejs";
@@ -30,7 +31,12 @@ export async function POST(req, { params }) {
     rec.decisionNote = note || "";
     if (decision === "Approved" && rec.status === "Under Development") rec.status = "Active";
 
-    return NextResponse.json(await updateApp(id, rec));
+    const saved = await updateApp(id, rec);
+    const actor = await getActor(approver);
+    await logAudit({ ...actor, action: decision === "Approved" ? "application.approve" : "application.reject",
+      entityType: "application", entityId: id,
+      summary: `${actor.actorName} ${decision === "Approved" ? "approved" : "rejected"} “${app.name}”${note ? ` — ${note}` : ""}` });
+    return NextResponse.json(saved);
   } catch (e) {
     return NextResponse.json({ error: e.message }, { status: 500 });
   }

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
-import { ensureSchema, getApp, updateApp, deleteApp, reconcileLinks } from "@/lib/db";
+import { ensureSchema, getApp, updateApp, deleteApp, reconcileLinks, logAudit } from "@/lib/db";
+import { getActor } from "@/lib/identity";
 import { today } from "@/lib/schema";
 import { pickFields, deriveAlias } from "../route";
 
@@ -49,6 +50,9 @@ export async function PUT(req, { params }) {
 
     const saved = await updateApp(id, rec);
     await reconcileLinks(saved);
+    const actor = await getActor(body.me);
+    await logAudit({ ...actor, action: "application.update", entityType: "application", entityId: id,
+      summary: `${actor.actorName} updated “${saved.name}”` });
     return NextResponse.json(await getApp(id));
   } catch (e) {
     return NextResponse.json({ error: e.message }, { status: 500 });
@@ -65,6 +69,11 @@ export async function DELETE(_req, { params }) {
     const existing = await getApp(id);
     if (existing) { existing.upstreamSystems = []; existing.downstreamSystems = []; await reconcileLinks(existing); }
     const ok = await deleteApp(id);
+    if (ok) {
+      const actor = await getActor();
+      await logAudit({ ...actor, action: "application.delete", entityType: "application", entityId: id,
+        summary: `${actor.actorName} deleted “${existing?.name || id}”` });
+    }
     return ok ? NextResponse.json({ ok: true }) : NextResponse.json({ error: "Not found" }, { status: 404 });
   } catch (e) {
     return NextResponse.json({ error: e.message }, { status: 500 });
