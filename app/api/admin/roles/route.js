@@ -19,7 +19,7 @@ export async function POST(req) {
   try {
     const { email, role } = await req.json();
     if (!email || !role) return NextResponse.json({ error: "email and role are required" }, { status: 400 });
-    const actor = await getActor();
+    const actor = await getActor(req);
     await setRole(email, role, actor.actorEmail || "admin");
     await logAudit({ ...actor, action: "role.update", entityType: "user", entityId: email,
       summary: `${actor.actorName} set ${email} → ${role}` });

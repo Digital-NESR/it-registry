@@ -32,7 +32,7 @@ export async function POST(req, { params }) {
     if (decision === "Approved" && rec.status === "Under Development") rec.status = "Active";
 
     const saved = await updateApp(id, rec);
-    const actor = await getActor(approver);
+    const actor = await getActor(req, approver);
     await logAudit({ ...actor, action: decision === "Approved" ? "application.approve" : "application.reject",
       entityType: "application", entityId: id,
       summary: `${actor.actorName} ${decision === "Approved" ? "approved" : "rejected"} “${app.name}”${note ? ` — ${note}` : ""}` });

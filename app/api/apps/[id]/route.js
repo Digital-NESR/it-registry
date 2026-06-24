@@ -50,7 +50,7 @@ export async function PUT(req, { params }) {
 
     const saved = await updateApp(id, rec);
     await reconcileLinks(saved);
-    const actor = await getActor(body.me);
+    const actor = await getActor(req, body.me);
     await logAudit({ ...actor, action: "application.update", entityType: "application", entityId: id,
       summary: `${actor.actorName} updated “${saved.name}”` });
     return NextResponse.json(await getApp(id));
@@ -60,7 +60,7 @@ export async function PUT(req, { params }) {
 }
 
 // DELETE /api/apps/:id
-export async function DELETE(_req, { params }) {
+export async function DELETE(req, { params }) {
   try {
     const id = parseId(params);
     if (!Number.isInteger(id)) return NextResponse.json({ error: "Invalid id" }, { status: 400 });
@@ -70,7 +70,7 @@ export async function DELETE(_req, { params }) {
     if (existing) { existing.upstreamSystems = []; existing.downstreamSystems = []; await reconcileLinks(existing); }
     const ok = await deleteApp(id);
     if (ok) {
-      const actor = await getActor();
+      const actor = await getActor(req);
       await logAudit({ ...actor, action: "application.delete", entityType: "application", entityId: id,
         summary: `${actor.actorName} deleted “${existing?.name || id}”` });
     }

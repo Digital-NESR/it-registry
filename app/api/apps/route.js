@@ -56,7 +56,7 @@ export async function POST(req) {
       saved = await patchApp(saved.id, { appId: "NESR-APP-" + String(1000 + saved.id * 7).slice(0, 4) });
     }
     await reconcileLinks(saved);
-    const actor = await getActor(body.me);
+    const actor = await getActor(req, body.me);
     await logAudit({ ...actor, action: body.asDraft ? "application.draft" : "application.create",
       entityType: "application", entityId: saved.id,
       summary: `${actor.actorName} ${body.asDraft ? "saved draft" : "submitted"} “${saved.name}”` });

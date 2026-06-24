@@ -35,7 +35,7 @@ export async function POST(req, { params }) {
         uploadedBy: String(uploadedBy),
       }));
     }
-    const actor = await getActor(String(uploadedBy));
+    const actor = await getActor(req, String(uploadedBy));
     await logAudit({ ...actor, action: "document.upload", entityType: "application", entityId: id,
       summary: `${actor.actorName} uploaded ${saved.length} document${saved.length > 1 ? "s" : ""}` });
     return NextResponse.json({ documents: saved }, { status: 201 });

@@ -5,7 +5,7 @@ import { Icon, fmtMoney, fmtDate, Avatar, primaryBtn, ghostBtn } from "./ui";
 
 const ROLE_OPTIONS = ["Business Owner", "Manager", "IT Director"];
 const ACTION_LABELS = {
-  "auth.login": "Sign in", "application.create": "App submitted", "application.draft": "Draft saved",
+  "auth.login": "Sign in", "auth.logout": "Sign out", "application.create": "App submitted", "application.draft": "Draft saved",
   "application.update": "App updated", "application.approve": "App approved", "application.reject": "App rejected",
   "application.delete": "App deleted", "document.upload": "Document uploaded", "role.update": "Role changed",
   "delegation.set": "Delegation changed",
@@ -246,7 +246,7 @@ function AuditPanel() {
   const [loading, setLoading] = useState(true);
   const load = useCallback(async () => {
     setLoading(true);
-    const q = new URLSearchParams(); if (actor) q.set("actor", actor); if (action) q.set("action", action);
+    const q = new URLSearchParams(); q.set("limit", "400"); if (actor) q.set("actor", actor); if (action) q.set("action", action);
     const r = await api("/api/admin/audit?" + q.toString());
     setRows(Array.isArray(r) ? r : []); setLoading(false);
   }, [actor, action]);
@@ -266,18 +266,22 @@ function AuditPanel() {
       <section style={{ ...card, padding: 0, overflow: "hidden" }}>
         <div style={{ overflow: "auto", maxHeight: "70vh" }}>
           <table style={{ width: "100%", borderCollapse: "collapse" }}>
-            <thead><tr><th style={th}>When</th><th style={th}>Actor</th><th style={th}>Action</th><th style={th}>Details</th></tr></thead>
+            <thead><tr><th style={th}>When</th><th style={th}>Actor</th><th style={th}>Action</th><th style={th}>Details</th><th style={th}>IP</th></tr></thead>
             <tbody>
-              {loading && <tr><td style={{ ...td, textAlign: "center", color: "var(--text-faint)", padding: 30 }} colSpan={4}>Loading…</td></tr>}
+              {loading && <tr><td style={{ ...td, textAlign: "center", color: "var(--text-faint)", padding: 30 }} colSpan={5}>Loading…</td></tr>}
               {!loading && rows.map((r) => (
                 <tr key={r.id}>
                   <td style={{ ...td, whiteSpace: "nowrap" }}><span className="num" style={{ fontSize: 11.5 }}>{new Date(r.ts).toLocaleString("en-GB")}</span></td>
-                  <td style={{ ...td, whiteSpace: "nowrap" }}>{r.actorName || r.actorEmail || "—"}</td>
+                  <td style={{ ...td, whiteSpace: "nowrap" }}>
+                    <div style={{ fontWeight: 600 }}>{r.actorName || "—"}</div>
+                    {r.actorEmail && <div style={{ fontSize: 11, color: "var(--text-faint)" }}>{r.actorEmail}</div>}
+                  </td>
                   <td style={td}><span style={{ padding: "2px 8px", borderRadius: 99, background: "var(--surface-2)", border: "1px solid var(--line)", fontSize: 11.5, fontWeight: 600 }}>{ACTION_LABELS[r.action] || r.action}</span></td>
                   <td style={{ ...td, color: "var(--text-soft)" }}>{r.summary}</td>
+                  <td style={{ ...td, whiteSpace: "nowrap" }}><span className="num" style={{ fontSize: 11.5, color: "var(--text-faint)" }}>{r.ip || "—"}</span></td>
                 </tr>
               ))}
-              {!loading && rows.length === 0 && <tr><td style={{ ...td, textAlign: "center", color: "var(--text-faint)", padding: 30 }} colSpan={4}>No audit events.</td></tr>}
+              {!loading && rows.length === 0 && <tr><td style={{ ...td, textAlign: "center", color: "var(--text-faint)", padding: 30 }} colSpan={5}>No audit events.</td></tr>}
             </tbody>
           </table>
         </div>

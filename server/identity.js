@@ -1,19 +1,36 @@
 /* Server-side identity & permission resolution.
    Lives in server/ (not the type:module lib/) so its next-auth import keeps
    standard CommonJS interop. Role is authoritative from the database
-   (system admins from env > user_roles > Business Owner), factoring
-   time-bound approval delegation. */
+   (admins from env > user_roles > Business Owner), factoring time-bound
+   approval delegation. */
 import { getServerSession } from "next-auth";
 import { authOptions } from "./auth-options.js";
 import { getUserRecord, getApprover } from "../lib/db.js";
 
 const sameEmail = (a, b) => !!a && !!b && a.toLowerCase() === b.toLowerCase();
 
-export function systemAdminEmails() {
-  return (process.env.SYSTEM_ADMIN_EMAILS || "").split(",").map((s) => s.trim().toLowerCase()).filter(Boolean);
+/** Admins from env: ADMIN_EMAILS is canonical; SYSTEM_ADMIN_EMAILS kept for
+    back-compat. Anyone listed can open /admin and has full portal access. */
+export function adminEmails() {
+  return [process.env.ADMIN_EMAILS, process.env.SYSTEM_ADMIN_EMAILS]
+    .filter(Boolean)
+    .join(",")
+    .split(",")
+    .map((s) => s.trim().toLowerCase())
+    .filter(Boolean);
 }
-export function isSystemAdminEmail(email) {
-  return !!email && systemAdminEmails().includes(email.toLowerCase());
+export function isAdminEmail(email) {
+  return !!email && adminEmails().includes(email.toLowerCase());
+}
+
+/** Best-effort client IP from proxy headers. */
+export function clientIp(req) {
+  try {
+    const xff = req.headers.get("x-forwarded-for");
+    return (xff ? xff.split(",")[0].trim() : null) || req.headers.get("x-real-ip") || null;
+  } catch {
+    return null;
+  }
 }
 
 /** Is the delegate window currently open? (open-ended if dates omitted) */
@@ -28,7 +45,7 @@ function delegationActive(approver) {
 /** Resolve full identity + permissions for an SSO email. */
 export async function resolveIdentity(email, fallbackName) {
   const rec = await getUserRecord(email);
-  const admin = isSystemAdminEmail(email);
+  const admin = isAdminEmail(email);
   const role = admin ? "System Admin" : rec?.role || "Business Owner";
   const approver = await getApprover();
   const isActiveDelegate = delegationActive(approver) && sameEmail(approver.delegateEmail, email);
@@ -49,18 +66,19 @@ export async function resolveIdentity(email, fallbackName) {
   };
 }
 
-/** The acting user for audit/authorization, from SSO session or password fallback. */
-export async function getActor(fallbackName) {
+/** The acting user for audit/authorization (SSO only now). */
+export async function getActor(req, fallbackName) {
   const session = await getServerSession(authOptions);
+  const ip = req ? clientIp(req) : null;
   if (session?.user?.email) {
-    return { actorEmail: session.user.email, actorName: session.user.name || session.user.email, via: "sso" };
+    return { actorEmail: session.user.email, actorName: session.user.name || session.user.email, ip };
   }
-  return { actorEmail: null, actorName: fallbackName || "NESR User (password)", via: "password" };
+  return { actorEmail: null, actorName: fallbackName || "Unknown", ip };
 }
 
-/** Admin gate for the /admin page and admin APIs. Password fallback = break-glass admin. */
+/** Admin gate for the /admin page and admin APIs — SSO email must be an admin. */
 export async function requireAdmin() {
   const session = await getServerSession(authOptions);
-  if (session?.user?.email) return { ok: isSystemAdminEmail(session.user.email), via: "sso", email: session.user.email };
-  return { ok: true, via: "password", email: null };
+  const email = session?.user?.email;
+  return { ok: isAdminEmail(email), email: email || null };
 }

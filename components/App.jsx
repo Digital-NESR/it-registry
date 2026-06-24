@@ -51,7 +51,7 @@ export default function App() {
   const [loadError, setLoadError] = useState(null);
   const [role, setRole] = useState("IT Director");
   const [me, setMe] = useState(headOfIT);
-  const [identityVia, setIdentityVia] = useState("password");
+  const [identityVia, setIdentityVia] = useState("sso");
   const [ssoPerms, setSsoPerms] = useState(null); // {scope, canApprove, canEditAll, isAdmin}
   const [isAdmin, setIsAdmin] = useState(false);
   const [jobTitle, setJobTitle] = useState(null);
@@ -291,11 +291,7 @@ const darkSelect = {
 function RoleSwitcher() {
   const { role, setRole, me, setMe, push, identityVia, jobTitle, email, photoUrl } = useStore();
   const isSSO = identityVia === "sso";
-  const logout = async () => {
-    if (isSSO) { signOut({ callbackUrl: "/login" }); return; }
-    try { await fetch("/api/logout", { method: "POST" }); } catch { /* ignore */ }
-    window.location.href = "/login";
-  };
+  const logout = () => signOut({ callbackUrl: "/login" });
   const people = [...new Set(PEOPLE)].sort();
   return (
     <div style={{ margin: "10px 16px 0", padding: "12px", background: "rgba(255,255,255,.04)", borderRadius: 11,

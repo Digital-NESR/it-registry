@@ -92,5 +92,16 @@ export const authOptions = {
         console.error("signIn event failed (non-fatal):", e.message);
       }
     },
+    async signOut({ token }) {
+      try {
+        if (!token?.email) return;
+        await logAudit({
+          actorEmail: token.email, actorName: token.name || token.email, action: "auth.logout",
+          entityType: "auth", summary: `${token.name || token.email} signed out`,
+        });
+      } catch (e) {
+        console.error("signOut event failed (non-fatal):", e.message);
+      }
+    },
   },
 };

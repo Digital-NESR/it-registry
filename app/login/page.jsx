@@ -10,7 +10,7 @@ const ERR = {
   OAuthCallback: "Microsoft sign-in failed on callback. Check the redirect URI and NEXTAUTH_URL.",
   Callback: "Sign-in callback failed (often NEXTAUTH_URL, redirect URI, or the database being unreachable).",
   OAuthAccountNotLinked: "This email is already linked to a different sign-in method.",
-  default: "Sign-in failed. See details below or check the server logs.",
+  default: "Sign-in failed. Please try again or contact NESR IT.",
 };
 
 function MicrosoftLogo() {
@@ -25,55 +25,14 @@ function MicrosoftLogo() {
 }
 
 export default function LoginPage() {
-  const [showPw, setShowPw] = useState(false);
-  const [password, setPassword] = useState("");
   const [error, setError] = useState("");
-  const [note, setNote] = useState("");
-  const [busy, setBusy] = useState(false);
-  const [ssoEnabled, setSsoEnabled] = useState(false);
 
   useEffect(() => {
-    fetch("/api/auth/providers")
-      .then((r) => (r.ok ? r.json() : {}))
-      .then((p) => setSsoEnabled(!!(p && p["azure-ad"])))
-      .catch(() => {});
-    // Surface a NextAuth error passed back as ?error= so failures are visible.
     const code = new URLSearchParams(window.location.search).get("error");
-    if (code) { setError(ERR[code] || ERR.default + ` (code: ${code})`); setShowPw(true); }
+    if (code) setError(ERR[code] || ERR.default + ` (code: ${code})`);
   }, []);
 
-  const onSSO = () => {
-    if (ssoEnabled) {
-      // Use the NextAuth client flow (handles CSRF + provider redirect reliably).
-      signIn("azure-ad", { callbackUrl: "/" });
-      return;
-    }
-    setNote("Microsoft SSO isn’t configured yet — use the access password below for now.");
-    setShowPw(true);
-  };
-
-  const onSubmit = async (e) => {
-    e.preventDefault();
-    setError("");
-    setBusy(true);
-    try {
-      const res = await fetch("/api/login", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ password }),
-      });
-      if (res.ok) {
-        window.location.href = "/";
-        return;
-      }
-      const data = await res.json().catch(() => ({}));
-      setError(data.error || "Incorrect password.");
-    } catch {
-      setError("Something went wrong. Please try again.");
-    } finally {
-      setBusy(false);
-    }
-  };
+  const onSSO = () => signIn("azure-ad", { callbackUrl: "/" });
 
   return (
     <div style={wrap}>
@@ -94,29 +53,7 @@ export default function LoginPage() {
           <MicrosoftLogo /> Continue with SSO
         </button>
 
-        {note && <div style={noteStyle}>{note}</div>}
-
-        {!showPw ? (
-          <button type="button" onClick={() => setShowPw(true)} style={linkBtn}>
-            Use access password instead
-          </button>
-        ) : (
-          <form onSubmit={onSubmit} style={{ marginTop: 18 }}>
-            <div style={divider}><span style={dividerText}>or sign in with password</span></div>
-            <input
-              type="password"
-              value={password}
-              onChange={(e) => { setPassword(e.target.value); setError(""); }}
-              placeholder="Access password"
-              autoFocus
-              style={{ ...input, borderColor: error ? "#E5614F" : "rgba(255,255,255,.12)" }}
-            />
-            {error && <div style={errStyle}>{error}</div>}
-            <button type="submit" disabled={busy || !password} style={{ ...pwBtn, opacity: busy || !password ? 0.55 : 1 }}>
-              {busy ? "Signing in…" : "Sign in"}
-            </button>
-          </form>
-        )}
+        {error && <div style={errStyle}>{error}</div>}
 
         <div style={footer}>NESR Internal Tool · Authorized Personnel Only</div>
       </div>
@@ -137,7 +74,6 @@ const wrap = {
 const card = {
   width: "100%",
   maxWidth: 440,
-  background: "#14181500",
   backgroundColor: "rgba(20,24,21,.72)",
   border: "1px solid rgba(255,255,255,.08)",
   borderRadius: 18,
@@ -158,20 +94,5 @@ const ssoBtn = {
   padding: "13px 16px", borderRadius: 11, border: "none", background: "#307c4c",
   color: "#fff", fontSize: 14.5, fontWeight: 600, cursor: "pointer", transition: "background .15s",
 };
-const linkBtn = {
-  marginTop: 16, background: "transparent", border: "none", color: "#8FA89A",
-  fontSize: 12.5, fontWeight: 600, cursor: "pointer", textDecoration: "underline", textUnderlineOffset: 3,
-};
-const noteStyle = { marginTop: 14, fontSize: 12, color: "#C5E0D2", lineHeight: 1.5 };
-const divider = { position: "relative", textAlign: "center", margin: "4px 0 16px" };
-const dividerText = { fontSize: 11, color: "#6B7A72", background: "transparent", textTransform: "uppercase", letterSpacing: ".06em" };
-const input = {
-  width: "100%", padding: "12px 14px", borderRadius: 10, border: "1px solid rgba(255,255,255,.12)",
-  background: "rgba(255,255,255,.04)", color: "#fff", fontSize: 14, fontFamily: "inherit", outline: "none",
-};
-const errStyle = { marginTop: 8, fontSize: 12.5, color: "#F0917F", textAlign: "left" };
-const pwBtn = {
-  width: "100%", marginTop: 14, padding: "12px 16px", borderRadius: 11, border: "none",
-  background: "#307c4c", color: "#fff", fontSize: 14, fontWeight: 600, cursor: "pointer",
-};
+const errStyle = { marginTop: 16, fontSize: 12.5, color: "#F0917F", lineHeight: 1.5 };
 const footer = { marginTop: 26, fontSize: 11.5, color: "#5E6B63", letterSpacing: ".01em" };

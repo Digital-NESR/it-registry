@@ -19,8 +19,8 @@ export async function POST(req) {
   if (!(await guard())) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   try {
     const { delegateEmail, start, end } = await req.json();
-    const result = await setDelegation({ delegateEmail: delegateEmail || null, start: start || null, end: end || null }, (await getActor()).actorEmail || "admin");
-    const actor = await getActor();
+    const actor = await getActor(req);
+    const result = await setDelegation({ delegateEmail: delegateEmail || null, start: start || null, end: end || null }, actor.actorEmail || "admin");
     await logAudit({ ...actor, action: "delegation.set", entityType: "delegation", entityId: result?.email,
       summary: delegateEmail
         ? `${actor.actorName} delegated approvals to ${delegateEmail}${start || end ? ` (${start || "…"} → ${end || "…"})` : ""}`
