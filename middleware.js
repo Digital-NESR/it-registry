@@ -13,7 +13,15 @@ export const config = {
 
 export async function middleware(req) {
   const secret = process.env.NEXTAUTH_SECRET || process.env.SESSION_SECRET;
-  const ssoToken = await getToken({ req, secret });
+  // In production (https) NextAuth uses the __Secure- prefixed cookie; read the
+  // same one here so the session is recognised behind a proxy/custom domain.
+  const secureCookie = process.env.NODE_ENV === "production";
+  let ssoToken = null;
+  try {
+    ssoToken = await getToken({ req, secret, secureCookie });
+  } catch {
+    ssoToken = null;
+  }
   const passwordSession = await verifySession(req.cookies.get(SESSION_COOKIE)?.value);
   if (ssoToken || passwordSession) return NextResponse.next();
 

@@ -24,6 +24,9 @@ export const ssoConfigured = !!(clientId && clientSecret && tenantId);
 export const authOptions = {
   secret: process.env.NEXTAUTH_SECRET || process.env.SESSION_SECRET,
   session: { strategy: "jwt" },
+  // Force __Secure- prefixed cookies in production so the cookie NextAuth sets
+  // matches what the middleware reads (important behind a proxy / custom domain).
+  useSecureCookies: process.env.NODE_ENV === "production",
   pages: { signIn: "/login", error: "/login" },
   providers: ssoConfigured
     ? [
