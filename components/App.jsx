@@ -4,7 +4,6 @@ import { useState, useEffect, useCallback, useMemo } from "react";
 import { signOut } from "next-auth/react";
 import { StoreCtx, useStore } from "./store";
 import { Icon, Avatar, Chip } from "./ui";
-import { NESR, headOfIT, people as PEOPLE } from "@/lib/schema";
 import { fetchApps, saveApp, decideApp } from "./api";
 import { Dashboard } from "./Dashboard";
 import { Registry } from "./Registry";
@@ -24,11 +23,8 @@ const ACCENTS = [
   ["#475569", "#33414F", "#94A3B2", "#DBE1E8"], // slate
 ];
 
-// Does this person own the application?
+// Does this person own the application? (used to scope a Business Owner's view)
 const ownsApp = (app, me) => app.businessOwner === me || app.itOwner === me || app.submittedBy === me;
-// Visibility & edit rules per role.
-const canSeeApp = (app, role, me) => role !== "Business Owner" || ownsApp(app, me);
-const canEditApp = (app, role, me) => role === "Manager" || (role === "Business Owner" && ownsApp(app, me));
 
 function useToasts() {
   const [toasts, setToasts] = useState([]);
@@ -46,12 +42,10 @@ export default function App() {
   const [loadError, setLoadError] = useState(null);
   const [role, setRole] = useState("");
   const [me, setMe] = useState("");
-  const [identityVia, setIdentityVia] = useState("sso");
   const [identityLoaded, setIdentityLoaded] = useState(false);
-  const [ssoPerms, setSsoPerms] = useState(null); // {scope, canApprove, canEditAll, isAdmin}
+  const [ssoPerms, setSsoPerms] = useState(null); // {scope, canApprove, canEditAll}
   const [isAdmin, setIsAdmin] = useState(false);
   const [jobTitle, setJobTitle] = useState(null);
-  const [email, setEmail] = useState(null);
   const [photoUrl, setPhotoUrl] = useState(null);
   const [view, setView] = useState("dashboard");
   const [selectedId, setSelectedId] = useState(null);
@@ -73,24 +67,16 @@ export default function App() {
   }, []);
   useEffect(() => { reload(); }, [reload]);
 
-  // Identity: when signed in via Microsoft SSO, drive name + role from the
-  // token (and lock the switcher). Password fallback keeps the manual switcher.
+  // Identity & permissions come from the Microsoft SSO session (resolved in /api/me).
   useEffect(() => {
     fetch("/api/me").then((r) => (r.ok ? r.json() : null)).then((m) => {
       if (!m) return;
-      setIdentityVia(m.via);
-      if (m.via === "sso") {
-        if (m.name) setMe(m.name);
-        if (m.role) setRole(m.role);
-        setJobTitle(m.jobTitle || null);
-        setEmail(m.email || null);
-        setPhotoUrl(m.photo || null);
-        setSsoPerms({ scope: m.scope, canApprove: m.canApprove, canEditAll: m.canEditAll });
-        setIsAdmin(!!m.isAdmin);
-      } else {
-        setSsoPerms(null);
-        setIsAdmin(!!m.isAdmin);
-      }
+      if (m.name) setMe(m.name);
+      if (m.role) setRole(m.role);
+      setJobTitle(m.jobTitle || null);
+      setPhotoUrl(m.photo || null);
+      setSsoPerms({ scope: m.scope, canApprove: m.canApprove, canEditAll: m.canEditAll });
+      setIsAdmin(!!m.isAdmin);
     }).catch(() => {}).finally(() => setIdentityLoaded(true));
   }, []);
 
@@ -105,17 +91,16 @@ export default function App() {
     document.body.classList.toggle("density-comfy", tw.density === "Comfortable");
   }, [tw]);
 
-  // Role-scoped view of the estate. SSO uses server-resolved permissions
-  // (incl. system admin + active delegation); password mode uses the switcher.
-  const isSSO = identityVia === "sso";
+  // Role-scoped view of the estate, from server-resolved SSO permissions:
+  // system admin / manager / IT director see all; business owners see their own.
   const visibleApps = useMemo(
-    () => apps.filter(a => (isSSO ? (ssoPerms?.scope === "all" || ownsApp(a, me)) : canSeeApp(a, role, me))),
-    [apps, isSSO, ssoPerms, role, me]
+    () => apps.filter(a => ssoPerms?.scope === "all" || ownsApp(a, me)),
+    [apps, ssoPerms, me]
   );
-  const canApprove = isSSO ? !!ssoPerms?.canApprove : role === "IT Director";
+  const canApprove = !!ssoPerms?.canApprove;
   const canEdit = useCallback(
-    (app) => (isSSO ? (ssoPerms?.canEditAll || (ssoPerms?.scope === "own" && ownsApp(app, me))) : canEditApp(app, role, me)),
-    [isSSO, ssoPerms, role, me]
+    (app) => ssoPerms?.canEditAll || (ssoPerms?.scope === "own" && ownsApp(app, me)),
+    [ssoPerms, me]
   );
 
   const goDetail = useCallback((id) => { setSelectedId(id); setView("detail"); }, []);
@@ -147,7 +132,7 @@ export default function App() {
     }
   }, [push, me]);
 
-  const store = { apps, visibleApps, setApps, role, setRole, me, setMe, identityVia, identityLoaded, isAdmin, jobTitle, email, photoUrl, view, setView, selectedId, setSelectedId,
+  const store = { apps, visibleApps, setApps, role, me, identityLoaded, isAdmin, jobTitle, photoUrl, view, setView, selectedId, setSelectedId,
     goDetail, submitApp, decide, push, pendingCount, prefill, setPrefill, canApprove, canEdit };
 
   const selected = apps.find(a => a.id === selectedId);
