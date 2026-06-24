@@ -39,6 +39,7 @@ export async function resolveIdentity(email, fallbackName) {
     email,
     name: fallbackName || rec?.displayName || email,
     jobTitle: rec?.jobTitle || null,
+    photo: rec?.photo || null,
     role,
     isAdmin: admin,
     canApprove,

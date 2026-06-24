@@ -34,7 +34,8 @@ export const authOptions = {
           clientId,
           clientSecret,
           tenantId,
-          authorization: { params: { scope: "openid profile email offline_access" } },
+          // User.Read lets us pull job title + photo from Microsoft Graph at login.
+          authorization: { params: { scope: "openid profile email offline_access User.Read" } },
         }),
       ]
     : [],
@@ -56,15 +57,33 @@ export const authOptions = {
     },
   },
   events: {
-    async signIn({ profile }) {
+    async signIn({ profile, account }) {
       // Profile upsert + audit must NEVER block sign-in (e.g. if the DB is
       // temporarily unreachable from the serverless function).
       try {
         const email = profile?.email || profile?.preferred_username || profile?.upn;
         if (!email) return;
         const displayName = profile?.name || email;
-        const jobTitle = profile?.jobTitle || profile?.job_title || null;
-        await upsertProfile({ email, displayName, jobTitle });
+        let jobTitle = profile?.jobTitle || profile?.job_title || null;
+        let photo = null;
+
+        // Pull job title + a small profile photo from Microsoft Graph.
+        const accessToken = account?.access_token;
+        if (accessToken) {
+          const headers = { Authorization: `Bearer ${accessToken}` };
+          const [meRes, photoRes] = await Promise.all([
+            fetch("https://graph.microsoft.com/v1.0/me?$select=displayName,jobTitle,mail,userPrincipalName", { headers }).catch(() => null),
+            fetch("https://graph.microsoft.com/v1.0/me/photos/48x48/$value", { headers }).catch(() => null),
+          ]);
+          if (meRes?.ok) { const j = await meRes.json(); jobTitle = j.jobTitle || jobTitle; }
+          if (photoRes?.ok) {
+            const buf = Buffer.from(await photoRes.arrayBuffer());
+            const ct = photoRes.headers.get("content-type") || "image/jpeg";
+            photo = `data:${ct};base64,${buf.toString("base64")}`;
+          }
+        }
+
+        await upsertProfile({ email, displayName, jobTitle, photo });
         await logAudit({
           actorEmail: email, actorName: displayName, action: "auth.login",
           entityType: "auth", summary: `${displayName} signed in via Microsoft SSO`,

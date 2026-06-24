@@ -55,6 +55,8 @@ export default function App() {
   const [ssoPerms, setSsoPerms] = useState(null); // {scope, canApprove, canEditAll, isAdmin}
   const [isAdmin, setIsAdmin] = useState(false);
   const [jobTitle, setJobTitle] = useState(null);
+  const [email, setEmail] = useState(null);
+  const [photoUrl, setPhotoUrl] = useState(null);
   const [view, setView] = useState("dashboard");
   const [selectedId, setSelectedId] = useState(null);
   const [prefill, setPrefill] = useState(null); // edit / resubmit data into add form
@@ -85,6 +87,8 @@ export default function App() {
         if (m.name) setMe(m.name);
         if (m.role) setRole(m.role);
         setJobTitle(m.jobTitle || null);
+        setEmail(m.email || null);
+        setPhotoUrl(m.photo || null);
         setSsoPerms({ scope: m.scope, canApprove: m.canApprove, canEditAll: m.canEditAll });
         setIsAdmin(!!m.isAdmin);
       } else {
@@ -147,7 +151,7 @@ export default function App() {
     }
   }, [push, me]);
 
-  const store = { apps, visibleApps, setApps, role, setRole, me, setMe, identityVia, isAdmin, jobTitle, view, setView, selectedId, setSelectedId,
+  const store = { apps, visibleApps, setApps, role, setRole, me, setMe, identityVia, isAdmin, jobTitle, email, photoUrl, view, setView, selectedId, setSelectedId,
     goDetail, submitApp, decide, push, pendingCount, prefill, setPrefill, canApprove, canEdit };
 
   const selected = apps.find(a => a.id === selectedId);
@@ -285,7 +289,7 @@ const darkSelect = {
   background: "rgba(0,0,0,.28)", color: "#fff", border: "1px solid rgba(255,255,255,.1)", appearance: "none",
 };
 function RoleSwitcher() {
-  const { role, setRole, me, setMe, push, identityVia, jobTitle } = useStore();
+  const { role, setRole, me, setMe, push, identityVia, jobTitle, email, photoUrl } = useStore();
   const isSSO = identityVia === "sso";
   const logout = async () => {
     if (isSSO) { signOut({ callbackUrl: "/login" }); return; }
@@ -296,12 +300,18 @@ function RoleSwitcher() {
   return (
     <div style={{ margin: "10px 16px 0", padding: "12px", background: "rgba(255,255,255,.04)", borderRadius: 11,
       border: "1px solid rgba(255,255,255,.07)" }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 9, marginBottom: isSSO ? 0 : 11 }}>
-        <Avatar name={me} size={34} />
-        <div style={{ lineHeight: 1.25, minWidth: 0 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: isSSO ? 0 : 11 }}>
+        {isSSO && photoUrl
+          ? <img src={photoUrl} alt={me} width={36} height={36} style={{ borderRadius: 99, objectFit: "cover", flexShrink: 0 }} />
+          : <Avatar name={me} size={34} />}
+        <div style={{ lineHeight: 1.3, minWidth: 0 }}>
           <div style={{ fontSize: 12.5, fontWeight: 600, color: "#fff", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{me}</div>
-          {isSSO && jobTitle && <div style={{ fontSize: 11, color: "#AFB6AF", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{jobTitle}</div>}
-          <div style={{ fontSize: 10.5, color: "#8FA89A" }}>{role}{isSSO && " · Microsoft SSO"}</div>
+          {isSSO
+            ? (<>
+                {jobTitle && <div style={{ fontSize: 11, color: "#AFB6AF", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{jobTitle}</div>}
+                {email && <div style={{ fontSize: 10.5, color: "#8FA89A", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{email}</div>}
+              </>)
+            : <div style={{ fontSize: 10.5, color: "#8FA89A" }}>{role}</div>}
         </div>
       </div>
       {!isSSO && (<>
