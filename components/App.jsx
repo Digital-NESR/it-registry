@@ -24,11 +24,6 @@ const ACCENTS = [
   ["#475569", "#33414F", "#94A3B2", "#DBE1E8"], // slate
 ];
 
-// Access-control roles (SSO-ready: when Azure AD is wired in, the user's name
-// and role come from the token instead of these client-side pickers).
-const ROLES = ["Business Owner", "Manager", "IT Director"];
-const ROLE_DESC = { "Business Owner": "Own applications", "Manager": "Everything", "IT Director": "Approver · all apps" };
-
 // Does this person own the application?
 const ownsApp = (app, me) => app.businessOwner === me || app.itOwner === me || app.submittedBy === me;
 // Visibility & edit rules per role.
@@ -49,9 +44,10 @@ export default function App() {
   const [apps, setApps] = useState([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(null);
-  const [role, setRole] = useState("IT Director");
-  const [me, setMe] = useState(headOfIT);
+  const [role, setRole] = useState("");
+  const [me, setMe] = useState("");
   const [identityVia, setIdentityVia] = useState("sso");
+  const [identityLoaded, setIdentityLoaded] = useState(false);
   const [ssoPerms, setSsoPerms] = useState(null); // {scope, canApprove, canEditAll, isAdmin}
   const [isAdmin, setIsAdmin] = useState(false);
   const [jobTitle, setJobTitle] = useState(null);
@@ -93,9 +89,9 @@ export default function App() {
         setIsAdmin(!!m.isAdmin);
       } else {
         setSsoPerms(null);
-        setIsAdmin(!!m.isAdmin); // password = break-glass admin
+        setIsAdmin(!!m.isAdmin);
       }
-    }).catch(() => {});
+    }).catch(() => {}).finally(() => setIdentityLoaded(true));
   }, []);
 
   // apply tweaks to CSS variables / body class
@@ -151,7 +147,7 @@ export default function App() {
     }
   }, [push, me]);
 
-  const store = { apps, visibleApps, setApps, role, setRole, me, setMe, identityVia, isAdmin, jobTitle, email, photoUrl, view, setView, selectedId, setSelectedId,
+  const store = { apps, visibleApps, setApps, role, setRole, me, setMe, identityVia, identityLoaded, isAdmin, jobTitle, email, photoUrl, view, setView, selectedId, setSelectedId,
     goDetail, submitApp, decide, push, pendingCount, prefill, setPrefill, canApprove, canEdit };
 
   const selected = apps.find(a => a.id === selectedId);
@@ -163,7 +159,7 @@ export default function App() {
         <div style={{ flex: 1, display: "flex", flexDirection: "column", minWidth: 0 }}>
           <TopBar />
           <main style={{ flex: 1, overflow: "auto", minHeight: 0 }}>
-            {loading ? <LoadingState />
+            {(loading || !identityLoaded) ? <LoadingState />
               : loadError ? <ErrorState message={loadError} onRetry={reload} />
               : (
                 <div key={view + (view === "detail" ? selectedId : "")} className="view-enter" style={{ minHeight: "100%" }}>
@@ -283,46 +279,34 @@ function NavRail() {
   );
 }
 
-/* ---------- role switcher ---------- */
-const darkSelect = {
-  width: "100%", padding: "7px 9px", borderRadius: 7, fontSize: 12, fontWeight: 600, fontFamily: "inherit",
-  background: "rgba(0,0,0,.28)", color: "#fff", border: "1px solid rgba(255,255,255,.1)", appearance: "none",
-};
+/* ---------- identity card ---------- */
+const skelLine = (w) => ({ height: 9, width: w, borderRadius: 5, background: "rgba(255,255,255,.09)" });
 function RoleSwitcher() {
-  const { role, setRole, me, setMe, push, identityVia, jobTitle, email, photoUrl } = useStore();
-  const isSSO = identityVia === "sso";
+  const { me, jobTitle, photoUrl, identityLoaded } = useStore();
   const logout = () => signOut({ callbackUrl: "/login" });
-  const people = [...new Set(PEOPLE)].sort();
   return (
     <div style={{ margin: "10px 16px 0", padding: "12px", background: "rgba(255,255,255,.04)", borderRadius: 11,
       border: "1px solid rgba(255,255,255,.07)" }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: isSSO ? 0 : 11 }}>
-        {isSSO && photoUrl
-          ? <img src={photoUrl} alt={me} width={36} height={36} style={{ borderRadius: 99, objectFit: "cover", flexShrink: 0 }} />
-          : <Avatar name={me} size={34} />}
-        <div style={{ lineHeight: 1.3, minWidth: 0 }}>
-          <div style={{ fontSize: 12.5, fontWeight: 600, color: "#fff", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{me}</div>
-          {isSSO
-            ? (<>
-                {jobTitle && <div style={{ fontSize: 11, color: "#AFB6AF", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{jobTitle}</div>}
-                {email && <div style={{ fontSize: 10.5, color: "#8FA89A", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{email}</div>}
-              </>)
-            : <div style={{ fontSize: 10.5, color: "#8FA89A" }}>{role}</div>}
+      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+        {!identityLoaded
+          ? <div style={{ width: 36, height: 36, borderRadius: 99, background: "rgba(255,255,255,.09)", flexShrink: 0 }} />
+          : photoUrl
+            ? <img src={photoUrl} alt={me} width={36} height={36} style={{ borderRadius: 99, objectFit: "cover", flexShrink: 0 }} />
+            : <Avatar name={me} size={34} />}
+        <div style={{ lineHeight: 1.3, minWidth: 0, flex: 1 }}>
+          {!identityLoaded ? (
+            <>
+              <div style={{ ...skelLine("75%"), marginBottom: 6 }} />
+              <div style={skelLine("50%")} />
+            </>
+          ) : (
+            <>
+              <div style={{ fontSize: 12.5, fontWeight: 600, color: "#fff", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{me}</div>
+              {jobTitle && <div style={{ fontSize: 11, color: "#AFB6AF", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{jobTitle}</div>}
+            </>
+          )}
         </div>
       </div>
-      {!isSSO && (<>
-        <div style={{ fontSize: 10.5, color: "#7E867E", fontWeight: 600, letterSpacing: ".06em", textTransform: "uppercase", margin: "11px 0 6px", display: "flex", alignItems: "center", gap: 5 }}>
-          <Icon name="switch" size={12} /> View as <span style={{ color: "#5E6B63", fontWeight: 500, textTransform: "none", letterSpacing: 0 }}>(until SSO)</span>
-        </div>
-        <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-          <select value={me} onChange={(e) => setMe(e.target.value)} style={darkSelect} title="Who am I">
-            {people.map((p) => <option key={p} value={p} style={{ color: "#000" }}>{p}</option>)}
-          </select>
-          <select value={role} onChange={(e) => { setRole(e.target.value); push(`Now viewing as ${e.target.value}`, "info"); }} style={darkSelect} title="Role">
-            {ROLES.map((r) => <option key={r} value={r} style={{ color: "#000" }}>{r} — {ROLE_DESC[r]}</option>)}
-          </select>
-        </div>
-      </>)}
       <button onClick={logout} style={{ marginTop: 10, width: "100%", display: "flex", alignItems: "center",
         justifyContent: "center", gap: 7, padding: "7px 4px", borderRadius: 7, border: "none",
         background: "transparent", color: "#8FA89A", fontSize: 11.5, fontWeight: 600 }}
@@ -359,10 +343,12 @@ function TopBar() {
       </button>
       <div style={{ height: 26, width: 1, background: "var(--line)" }} />
       <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-        <Chip color={role === "IT Director" ? "--st-active" : role === "Manager" ? "--st-dev" : "--st-review"}
-          bg={role === "IT Director" ? "--st-active-bg" : role === "Manager" ? "--st-dev-bg" : "--st-review-bg"}>
-          {role}
-        </Chip>
+        {role && (
+          <Chip color={role === "IT Director" || role === "System Admin" ? "--st-active" : role === "Manager" ? "--st-dev" : "--st-review"}
+            bg={role === "IT Director" || role === "System Admin" ? "--st-active-bg" : role === "Manager" ? "--st-dev-bg" : "--st-review-bg"}>
+            {role}
+          </Chip>
+        )}
       </div>
     </header>
   );
