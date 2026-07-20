@@ -2,8 +2,9 @@
 /* ===== Add / Edit Application: multi-step submission form ===== */
 import { Fragment, useState, useEffect, useRef, useMemo } from "react";
 import { useStore } from "./store";
-import { NESR, headOfIT, people as PEOPLE, fieldByKey } from "@/lib/schema";
+import { NESR, headOfIT, fieldByKey } from "@/lib/schema";
 import { Icon, primaryBtn, ghostBtn, textBtn } from "./ui";
+import { EmployeeSelect } from "./EmployeeSelect";
 
 const GLOBAL = "Global";
 // Cost-centre mapping is fetched once per session and cached.
@@ -271,9 +272,7 @@ function Field({ f, value, onChange, error, lead, apps, docProps }) {
   } else if (f.multi) {
     input = <MultiSelect value={value || []} options={NESR.refs[f.ref] || f.options || []} onChange={(v) => onChange(f.key, v)} placeholder="Select all that apply…" />;
   } else if (f.people) {
-    input = (<>
-      <input {...common} list="nesr-people" placeholder="Pick a name or type a new one" autoComplete="off" />
-    </>);
+    input = <EmployeeSelect value={value} onChange={(v) => onChange(f.key, v)} placeholder="Search NESR directory…" error={error} />;
   } else if (f.ref) {
     input = (
       <select {...common}>
@@ -374,8 +373,6 @@ export function AddForm() {
 
   return (
     <div style={{ padding: "20px 26px 60px", maxWidth: 1060, margin: "0 auto" }}>
-      <datalist id="nesr-people">{[...new Set(PEOPLE)].map((p) => <option key={p} value={p} />)}</datalist>
-
       <button onClick={() => setView(editing ? "registry" : "dashboard")} style={{ ...textBtn, paddingLeft: 0, marginBottom: 8 }}>
         <Icon name="chevLeft" size={15} /> Cancel
       </button>

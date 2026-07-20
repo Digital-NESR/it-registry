@@ -2,6 +2,7 @@
 /* ===== Admin Console (/admin) — Roles · Analytics · Audit Logs ===== */
 import { useState, useEffect, useCallback } from "react";
 import { Icon, fmtMoney, fmtDate, Avatar, primaryBtn, ghostBtn } from "./ui";
+import { EmployeeSelect } from "./EmployeeSelect";
 
 const ROLE_OPTIONS = ["Business Owner", "Manager", "IT Director"];
 const ACTION_LABELS = {
@@ -137,7 +138,9 @@ function RolesPanel() {
           )}
         </p>
         <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr 1fr auto", gap: 10, alignItems: "end" }}>
-          <Labeled label="Delegate (email)"><input list="role-emails" style={inputS} value={del.delegateEmail} placeholder="delegate@nesr.com" onChange={(e) => setDel({ ...del, delegateEmail: e.target.value })} /></Labeled>
+          <Labeled label="Delegate (search directory)">
+            <EmployeeSelect value={del.delegateEmail} onChange={(v) => setDel({ ...del, delegateEmail: v })} field="email" placeholder="Search employee…" />
+          </Labeled>
           <Labeled label="From"><input type="date" style={inputS} value={del.start} onChange={(e) => setDel({ ...del, start: e.target.value })} /></Labeled>
           <Labeled label="Until"><input type="date" style={inputS} value={del.end} onChange={(e) => setDel({ ...del, end: e.target.value })} /></Labeled>
           <div style={{ display: "flex", gap: 8 }}>
@@ -145,7 +148,6 @@ function RolesPanel() {
             {delegation?.delegateEmail && <button onClick={() => saveDelegation(true)} disabled={busy} style={ghostBtn}>Clear</button>}
           </div>
         </div>
-        <datalist id="role-emails">{roles.map((r) => <option key={r.email} value={r.email} />)}</datalist>
       </section>
 
       {/* Users & roles */}

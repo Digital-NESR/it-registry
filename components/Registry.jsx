@@ -38,7 +38,7 @@ const COLDEFS = {
   companyName: { label: "Company", w: 220 },
   businessCriticality: { label: "Criticality", w: 90, render: (a) => <CritChip value={a.businessCriticality} /> },
   businessOwner: { label: "Business Owner", w: 165, render: (a) => <OwnerCell name={a.businessOwner} /> },
-  itOwner: { label: "IT Owner", w: 165, render: (a) => <OwnerCell name={a.itOwner} /> },
+  itOwner: { label: "Application Manager", w: 175, render: (a) => <OwnerCell name={a.itOwner} /> },
   sourcing: { label: "Sourcing", w: 110 },
   hostingModel: { label: "Deployment", w: 130 },
   hostingLocation: { label: "Hosted At", w: 170 },
