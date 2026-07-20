@@ -18,6 +18,7 @@ export async function POST(req, { params }) {
     const form = await req.formData();
     const files = form.getAll("files").filter((f) => typeof f === "object" && f.arrayBuffer);
     const uploadedBy = form.get("me") || "Unknown";
+    const category = form.get("category") || null;
     if (!files.length) return NextResponse.json({ error: "No files provided" }, { status: 400 });
 
     const saved = [];
@@ -33,6 +34,7 @@ export async function POST(req, { params }) {
         size: buf.length,
         data: buf,
         uploadedBy: String(uploadedBy),
+        category: category ? String(category) : null,
       }));
     }
     const actor = await getActor(req, String(uploadedBy));

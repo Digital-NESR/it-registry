@@ -29,7 +29,7 @@ const STEPS = [
 
 function emptyApp() {
   const o = { name: "" };
-  NESR.fieldDefs.forEach((f) => { o[f.key] = f.multi || f.apps ? [] : ""; });
+  NESR.fieldDefs.forEach((f) => { o[f.key] = f.multi || f.apps ? [] : f.obj ? {} : ""; });
   o.annualLicenseCost = 0;
   o.annualMaintCost = 0;
   o.tco = 0;
@@ -37,7 +37,7 @@ function emptyApp() {
 }
 const computeTco = (d) => (Number(d.annualLicenseCost) || 0) + (Number(d.annualMaintCost) || 0);
 
-const fieldVisible = (f, data) => !f.showIf || (f.showIf.in || []).includes(data[f.showIf.key]);
+const fieldVisible = (f, data) => !f.hidden && (!f.showIf || (f.showIf.in || []).includes(data[f.showIf.key]));
 const domainVisible = (dom, data) => !dom.showIf || (dom.showIf.in || []).includes(data[dom.showIf.key]);
 
 const inputStyle = (error) => ({
@@ -235,8 +235,41 @@ function DocumentField({ existing, pending, onAdd, onRemovePending, onRemoveExis
           {existing.map((d) => (
             <DocRow key={"e" + d.id} name={d.filename} sub={`${Math.round((d.size || 0) / 1024)} KB · uploaded`} onRemove={() => onRemoveExisting(d)} />
           ))}
-          {pending.map((f, i) => (
-            <DocRow key={"p" + i} name={f.name} sub={`${Math.round(f.size / 1024)} KB · pending upload`} onRemove={() => onRemovePending(i)} pending />
+          {pending.map((p) => (
+            <DocRow key={"p" + p.id} name={p.file.name} sub={`${Math.round(p.file.size / 1024)} KB · pending upload`} onRemove={() => onRemovePending(p.id)} pending />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ---------- certifications: multiselect + per-cert attachment & expiry ---------- */
+function CertificationsField({ data, set, patch, docPropsFor, error }) {
+  const selected = (data.certifications || []).filter((c) => c && c !== "None");
+  const setExpiry = (cert, v) => patch({ certExpiry: { ...(data.certExpiry || {}), [cert]: v } });
+  const lbl = { display: "block", fontSize: 11.5, fontWeight: 600, color: "var(--text-soft)", marginBottom: 5 };
+  return (
+    <div style={{ gridColumn: "span 2" }}>
+      <label style={lbl}>Certifications</label>
+      <MultiSelect value={data.certifications || []} options={NESR.refs.certifications} onChange={(v) => set("certifications", v)} placeholder="Select all that apply…" />
+      <div style={{ fontSize: 11, color: "var(--text-faint)", marginTop: 4 }}>Each selected certification gets its own attachment and expiry date below.</div>
+      {selected.length > 0 && (
+        <div style={{ display: "flex", flexDirection: "column", gap: 12, marginTop: 14 }}>
+          {selected.map((cert) => (
+            <div key={cert} style={{ border: "1px solid var(--line)", borderRadius: 11, padding: 14, background: "var(--surface-2)" }}>
+              <div style={{ fontSize: 12.5, fontWeight: 700, marginBottom: 10 }}>{cert}</div>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px 20px", alignItems: "start" }}>
+                <div>
+                  <label style={lbl}>Expiry date</label>
+                  <input type="date" value={(data.certExpiry || {})[cert] || ""} onChange={(e) => setExpiry(cert, e.target.value)} style={inputStyle(false)} />
+                </div>
+                <div>
+                  <label style={lbl}>Attachment</label>
+                  <DocumentField {...docPropsFor("cert:" + cert)} />
+                </div>
+              </div>
+            </div>
           ))}
         </div>
       )}
@@ -258,7 +291,7 @@ function DocRow({ name, sub, onRemove, pending }) {
   );
 }
 
-function Field({ f, value, onChange, error, lead, apps, docProps }) {
+function Field({ f, value, onChange, error, lead, apps, docPropsFor }) {
   const id = "fld-" + f.key;
   const req = REQUIRED.includes(f.key);
   const common = {
@@ -266,7 +299,7 @@ function Field({ f, value, onChange, error, lead, apps, docProps }) {
   };
   let input;
   if (f.file) {
-    input = <DocumentField {...docProps} />;
+    input = <DocumentField {...docPropsFor(f.key)} />;
   } else if (f.auto) {
     input = <input {...common} disabled value={value || "Auto-generated on submit"}
       style={{ ...inputStyle(false), background: "var(--surface-2)", color: "var(--text-faint)", fontFamily: "var(--mono)" }} />;
@@ -350,10 +383,15 @@ export function AddForm() {
 
   const uploadPending = async (appId) => {
     if (!pendingFiles.length) return;
-    const fd = new FormData();
-    pendingFiles.forEach((f) => fd.append("files", f));
-    fd.append("me", me);
-    await fetch(`/api/apps/${appId}/documents`, { method: "POST", body: fd }).catch(() => {});
+    const groups = {};
+    pendingFiles.forEach((p) => { (groups[p.category] ??= []).push(p.file); });
+    for (const [category, files] of Object.entries(groups)) {
+      const fd = new FormData();
+      files.forEach((f) => fd.append("files", f));
+      fd.append("me", me);
+      fd.append("category", category);
+      await fetch(`/api/apps/${appId}/documents`, { method: "POST", body: fd }).catch(() => {});
+    }
   };
 
   const finalize = async (asDraft) => {
@@ -379,12 +417,15 @@ export function AddForm() {
     setExistingDocs((d) => d.filter((x) => x.id !== doc.id));
     await fetch(`/api/documents/${doc.id}`, { method: "DELETE" }).catch(() => {});
   };
-  const docProps = {
-    existing: existingDocs, pending: pendingFiles,
-    onAdd: (files) => setPendingFiles((p) => [...p, ...files]),
-    onRemovePending: (i) => setPendingFiles((p) => p.filter((_, idx) => idx !== i)),
+  const rid = () => Math.random().toString(36).slice(2);
+  // Legacy docs (no category) belong to the general "documents" field.
+  const docPropsFor = (category) => ({
+    existing: existingDocs.filter((d) => (d.category || "documents") === category),
+    pending: pendingFiles.filter((p) => p.category === category),
+    onAdd: (files) => setPendingFiles((p) => [...p, ...files.map((f) => ({ id: rid(), file: f, category }))]),
+    onRemovePending: (delId) => setPendingFiles((p) => p.filter((x) => x.id !== delId)),
     onRemoveExisting: removeExistingDoc,
-  };
+  });
 
   return (
     <div style={{ padding: "20px 26px 60px", maxWidth: 1060, margin: "0 auto" }}>
@@ -422,7 +463,7 @@ export function AddForm() {
           <div key={step} className="view-enter">
             {STEPS[step].lead && (
               <div style={{ marginBottom: 22 }}>
-                <Field f={{ key: "name", label: "Application Name", hint: "The official name of the application." }} value={data.name} onChange={set} error={touched && errors.name} lead apps={apps} />
+                <Field f={{ key: "name", label: "Application Name", hint: "The official name of the application." }} value={data.name} onChange={set} error={touched && errors.name} lead apps={apps} docPropsFor={docPropsFor} />
               </div>
             )}
             {visibleDomainsFor(stepDomainsRaw).map((dom) => (
@@ -440,7 +481,11 @@ export function AddForm() {
                         if (!pickerDone) { items.push(<CostCenterPicker key="__cc" value={data} patch={patch} mapping={costCenters} touched={touched} errors={errors} />); pickerDone = true; }
                         return;
                       }
-                      items.push(<Field key={f.key} f={f} value={data[f.key]} onChange={set} error={touched && errors[f.key]} apps={apps} docProps={f.file ? docProps : undefined} />);
+                      if (f.certDetails) {
+                        items.push(<CertificationsField key="__certs" data={data} set={set} patch={patch} docPropsFor={docPropsFor} />);
+                        return;
+                      }
+                      items.push(<Field key={f.key} f={f} value={data[f.key]} onChange={set} error={touched && errors[f.key]} apps={apps} docPropsFor={docPropsFor} />);
                     });
                     return items;
                   })()}

@@ -9,7 +9,7 @@ import {
   exportCSV, primaryBtn, ghostBtn, textBtn,
 } from "./ui";
 
-const fieldVisible = (f, app) => !f.showIf || (f.showIf.in || []).includes(app[f.showIf.key]);
+const fieldVisible = (f, app) => !f.hidden && (!f.showIf || (f.showIf.in || []).includes(app[f.showIf.key]));
 const domainVisible = (dom, app) => !dom.showIf || (dom.showIf.in || []).includes(app[dom.showIf.key]);
 const PEOPLE_KEYS = ["businessOwner", "itOwner", "primarySupportContact", "escalationContact", "serverOwner"];
 
@@ -42,9 +42,41 @@ function Chips({ values }) {
   );
 }
 
+const docsInCategory = (app, category) => (app.documents || []).filter((d) => (d.category || "documents") === category);
+
+function CertsView({ app }) {
+  const certs = (app.certifications || []).filter((c) => c && c !== "None");
+  if (!certs.length) return <span style={{ color: "var(--text-faint)" }}>—</span>;
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+      {certs.map((cert) => {
+        const docs = docsInCategory(app, "cert:" + cert);
+        const exp = (app.certExpiry || {})[cert];
+        const d = exp ? daysUntil(exp) : null;
+        const expired = d != null && d < 0;
+        const soon = d != null && d >= 0 && d <= 60;
+        return (
+          <div key={cert} style={{ border: "1px solid var(--line)", borderRadius: 9, padding: "8px 11px", background: "var(--surface-2)" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 8 }}>
+              <span style={{ fontSize: 12.5, fontWeight: 700 }}>{cert}</span>
+              <span className="num" style={{ fontSize: 11.5, fontWeight: 600, color: expired ? "var(--st-reject)" : soon ? "var(--st-sunset)" : "var(--text-faint)" }}>
+                {exp ? `${expired ? "Expired" : "Expires"} ${fmtDate(exp)}` : "No expiry set"}
+              </span>
+            </div>
+            {docs.length > 0
+              ? <div style={{ marginTop: 7 }}><Documents docs={docs} /></div>
+              : <div style={{ marginTop: 4, fontSize: 11, color: "var(--text-faint)" }}>No attachment</div>}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 function fieldValue(app, f) {
   const v = app[f.key];
-  if (f.file) return <Documents docs={app.documents} />;
+  if (f.certDetails) return <CertsView app={app} />;
+  if (f.file) return <Documents docs={docsInCategory(app, f.key)} />;
   if (f.multi || f.apps) return <Chips values={Array.isArray(v) ? v : []} />;
   if (v === "" || v == null) return <span style={{ color: "var(--text-faint)" }}>—</span>;
   if (f.money) return <span className="num" title={fmtMoneyFull(v)}>{fmtMoneyFull(v)}</span>;
@@ -184,7 +216,7 @@ export function Detail({ app }) {
               </div>
               <dl style={{ margin: 0, display: "grid", gridTemplateColumns: dom.key === "documents" ? "1fr" : "1fr 1fr", gap: "0" }}>
                 {fields.map((f) => (
-                  <div key={f.key} style={{ padding: "8px 0", borderTop: "1px solid var(--line)", gridColumn: f.long || f.file || f.apps ? "span 2" : "auto" }}>
+                  <div key={f.key} style={{ padding: "8px 0", borderTop: "1px solid var(--line)", gridColumn: f.long || f.file || f.apps || f.certDetails ? "span 2" : "auto" }}>
                     <dt style={{ fontSize: 11, color: "var(--text-faint)", fontWeight: 600, letterSpacing: ".01em", marginBottom: 2 }}>{f.label}</dt>
                     <dd style={{ margin: 0, fontSize: 12.5, fontWeight: 500, color: "var(--text)", wordBreak: "break-word" }}>{fieldValue(app, f)}</dd>
                   </div>
