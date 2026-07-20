@@ -43,7 +43,6 @@ const COLDEFS = {
   hostingModel: { label: "Deployment", w: 130 },
   hostingLocation: { label: "Hosted At", w: 170 },
   cloudProvider: { label: "Cloud", w: 90 },
-  architectureType: { label: "Architecture", w: 120 },
   tco: { label: "TCO", w: 95, align: "right", render: (a) => <span className="num">{fmtMoney(a.tco)}</span> },
   annualLicenseCost: { label: "License $/yr", w: 105, align: "right", render: (a) => <span className="num">{fmtMoney(a.annualLicenseCost)}</span> },
   dataClassification: { label: "Data Class", w: 110 },
@@ -67,7 +66,7 @@ const COLDEFS = {
 const COL_GROUPS = [
   { key: "overview", label: "Overview", cols: ["status", "approvalStatus", "department", "businessCriticality", "tco"] },
   { key: "ownership", label: "Ownership", cols: ["businessOwner", "itOwner", "country", "companyName", "sourcing"] },
-  { key: "technical", label: "Technical", cols: ["hostingModel", "hostingLocation", "cloudProvider", "architectureType", "integrationComplexity", "ssoProvider"] },
+  { key: "technical", label: "Technical", cols: ["hostingModel", "hostingLocation", "cloudProvider", "integrationComplexity", "ssoProvider"] },
   { key: "risk", label: "Risk & Compliance", cols: ["dataClassification", "containsPii", "openVulnerabilities", "drAvailability", "hasBackup"] },
   { key: "financial", label: "Financial", cols: ["annualLicenseCost", "contractRenewalDate"] },
   { key: "vendor", label: "Vendor & Support", cols: ["appVendor", "supportTier", "slaAvailability", "monitoringTool", "nextReviewDate"] },
