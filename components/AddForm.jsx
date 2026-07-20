@@ -342,6 +342,22 @@ function Field({ f, value, onChange, error, lead, apps, docPropsFor }) {
       style={{ ...inputStyle(false), background: "var(--surface-2)", color: "var(--text-soft)", fontWeight: 600 }} />;
   } else if (f.contacts) {
     input = <ContactsField value={value} onChange={(v) => onChange(f.key, v)} />;
+  } else if (f.toggle) {
+    const opts = f.options || NESR.refs[f.ref] || [];
+    input = (
+      <div style={{ display: "inline-flex", background: "var(--surface-2)", border: "1px solid var(--line-strong)", borderRadius: 8, padding: 3, gap: 3 }}>
+        {opts.map((o) => {
+          const on = value === o;
+          return (
+            <button type="button" key={o} onClick={() => onChange(f.key, o)}
+              style={{ padding: "7px 18px", borderRadius: 6, border: "none", fontSize: 12.5, fontWeight: 600, cursor: "pointer",
+                background: on ? "var(--green-600)" : "transparent", color: on ? "#fff" : "var(--text-soft)", transition: "background .15s" }}>
+              {o}
+            </button>
+          );
+        })}
+      </div>
+    );
   } else if (f.apps) {
     const names = apps.map((a) => a.name).filter((n) => n && n !== value);
     input = <MultiSelect value={value || []} options={[...new Set(names)].sort()} onChange={(v) => onChange(f.key, v)} placeholder="Link applications…" />;

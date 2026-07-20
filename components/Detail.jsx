@@ -102,6 +102,7 @@ function fieldValue(app, f) {
       {fmtDate(v)}{d != null && (overdue || soon) ? <span style={{ fontSize: 11, marginLeft: 6, fontWeight: 500 }}>{overdue ? `${-d}d overdue` : `in ${d}d`}</span> : ""}
     </span>;
   }
+  if (f.toggle) return <Chip color="--st-dev" bg="--st-dev-bg">{v}</Chip>;
   if (f.key === "status") return <StatusChip value={v} />;
   if (f.key === "businessCriticality") return <span style={{ display: "inline-flex", alignItems: "center", gap: 7 }}><span style={{ width: 8, height: 8, borderRadius: 2, background: CRIT_C[critTier(v)] }} />{v}</span>;
   if (f.key === "containsPii") return <PiiCell v={v} />;
