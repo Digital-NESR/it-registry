@@ -21,7 +21,7 @@ const REQUIRED = ["name", "businessOwner", "itOwner", "department", "sourcing", 
 const STEPS = [
   { label: "Identity & Ownership", icon: "id", domains: ["identity"], lead: true },
   { label: "Technical & Hosting", icon: "chip", domains: ["technical", "onprem"] },
-  { label: "Risk & Resilience", icon: "shield", domains: ["lifecycle", "risk", "resilience"] },
+  { label: "Risk & Resilience", icon: "shield", domains: ["lifecycle", "risk", "resilience", "ai"] },
   { label: "Financial & Vendor", icon: "coin", domains: ["financial", "vendor"] },
   { label: "Operations & Value", icon: "wrench", domains: ["support", "value", "dependencies", "documents"] },
   { label: "Review & Submit", icon: "check", domains: [] },
@@ -29,7 +29,7 @@ const STEPS = [
 
 function emptyApp() {
   const o = { name: "" };
-  NESR.fieldDefs.forEach((f) => { o[f.key] = f.multi || f.apps || f.contacts ? [] : f.obj ? {} : ""; });
+  NESR.fieldDefs.forEach((f) => { o[f.key] = f.multi || f.apps || f.contacts || f.repeater ? [] : f.obj ? {} : ""; });
   o.annualLicenseCost = 0;
   o.annualMaintCost = 0;
   o.tco = 0;
@@ -313,6 +313,34 @@ function ContactsField({ value, onChange }) {
   );
 }
 
+/* ---------- generic dynamic rows (configurable columns) ---------- */
+function RepeaterField({ value, onChange, columns, addLabel = "Add row" }) {
+  const rows = Array.isArray(value) ? value : [];
+  const upd = (i, k, v) => onChange(rows.map((r, idx) => (idx === i ? { ...r, [k]: v } : r)));
+  const add = () => onChange([...rows, Object.fromEntries(columns.map((c) => [c.key, ""]))]);
+  const remove = (i) => onChange(rows.filter((_, idx) => idx !== i));
+  const grid = columns.map(() => "1fr").join(" ") + " auto";
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+      {rows.length === 0 && <div style={{ fontSize: 11.5, color: "var(--text-faint)" }}>None added yet.</div>}
+      {rows.map((r, i) => (
+        <div key={i} style={{ display: "grid", gridTemplateColumns: grid, gap: 8, alignItems: "center" }}>
+          {columns.map((c) => (c.type === "select" ? (
+            <select key={c.key} style={inputStyle(false)} value={r[c.key] || ""} onChange={(e) => upd(i, c.key, e.target.value)}>
+              <option value="">{c.label}…</option>
+              {(c.options || []).map((o) => <option key={o} value={o}>{o}</option>)}
+            </select>
+          ) : (
+            <input key={c.key} style={inputStyle(false)} placeholder={c.label} value={r[c.key] || ""} onChange={(e) => upd(i, c.key, e.target.value)} />
+          )))}
+          <button type="button" onClick={() => remove(i)} title="Remove" style={{ ...ghostBtn, padding: "8px 10px" }}><Icon name="x" size={14} /></button>
+        </div>
+      ))}
+      <button type="button" onClick={add} style={{ ...ghostBtn, alignSelf: "flex-start" }}><Icon name="plus" size={14} /> {addLabel}</button>
+    </div>
+  );
+}
+
 function Field({ f, value, onChange, error, lead, apps, docPropsFor }) {
   const id = "fld-" + f.key;
   const req = REQUIRED.includes(f.key);
@@ -342,6 +370,8 @@ function Field({ f, value, onChange, error, lead, apps, docPropsFor }) {
       style={{ ...inputStyle(false), background: "var(--surface-2)", color: "var(--text-soft)", fontWeight: 600 }} />;
   } else if (f.contacts) {
     input = <ContactsField value={value} onChange={(v) => onChange(f.key, v)} />;
+  } else if (f.repeater) {
+    input = <RepeaterField value={value} onChange={(v) => onChange(f.key, v)} columns={f.columns} addLabel={f.addLabel} />;
   } else if (f.toggle) {
     const opts = f.options || NESR.refs[f.ref] || [];
     input = (
@@ -382,7 +412,7 @@ function Field({ f, value, onChange, error, lead, apps, docPropsFor }) {
     input = <input type="text" {...common} />;
   }
   return (
-    <div style={{ gridColumn: f.long || f.file || f.apps || f.contacts ? "span 2" : "auto" }}>
+    <div style={{ gridColumn: f.long || f.file || f.apps || f.contacts || f.repeater ? "span 2" : "auto" }}>
       <label htmlFor={id} style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 11.5, fontWeight: 600, color: "var(--text-soft)", marginBottom: 5 }}>
         {f.key === "name" ? "Application Name" : f.label}
         {req && <span style={{ color: "var(--st-reject)" }}>*</span>}

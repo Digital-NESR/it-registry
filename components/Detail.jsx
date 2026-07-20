@@ -44,6 +44,20 @@ function Chips({ values }) {
 
 const docsInCategory = (app, category) => (app.documents || []).filter((d) => (d.category || "documents") === category);
 
+function RepeaterView({ rows, columns }) {
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+      {rows.map((r, i) => (
+        <div key={i} style={{ display: "flex", flexWrap: "wrap", gap: "2px 14px", padding: "6px 10px", borderRadius: 8, border: "1px solid var(--line)", background: "var(--surface-2)", fontSize: 12.5 }}>
+          {columns.map((c) => (
+            <span key={c.key}><span style={{ color: "var(--text-faint)" }}>{c.label}:</span> <b style={{ fontWeight: 600 }}>{r[c.key] || "—"}</b></span>
+          ))}
+        </div>
+      ))}
+    </div>
+  );
+}
+
 function ContactsView({ contacts }) {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
@@ -91,6 +105,7 @@ function fieldValue(app, f) {
   if (f.certDetails) return <CertsView app={app} />;
   if (f.checkbox) return <Chip color={v === "Yes" ? "--st-active" : "--st-decom"} bg={v === "Yes" ? "--st-active-bg" : "--st-decom-bg"}>{v === "Yes" ? "Yes" : "No"}</Chip>;
   if (f.contacts) { const arr = Array.isArray(v) ? v : []; return arr.length ? <ContactsView contacts={arr} /> : <span style={{ color: "var(--text-faint)" }}>—</span>; }
+  if (f.repeater) { const arr = Array.isArray(v) ? v : []; return arr.length ? <RepeaterView rows={arr} columns={f.columns} /> : <span style={{ color: "var(--text-faint)" }}>—</span>; }
   if (f.file) return <Documents docs={docsInCategory(app, f.key)} />;
   if (f.multi || f.apps) return <Chips values={Array.isArray(v) ? v : []} />;
   if (v === "" || v == null) return <span style={{ color: "var(--text-faint)" }}>—</span>;
@@ -232,7 +247,7 @@ export function Detail({ app }) {
               </div>
               <dl style={{ margin: 0, display: "grid", gridTemplateColumns: dom.key === "documents" ? "1fr" : "1fr 1fr", gap: "0" }}>
                 {fields.map((f) => (
-                  <div key={f.key} style={{ padding: "8px 0", borderTop: "1px solid var(--line)", gridColumn: f.long || f.file || f.apps || f.certDetails || f.contacts ? "span 2" : "auto" }}>
+                  <div key={f.key} style={{ padding: "8px 0", borderTop: "1px solid var(--line)", gridColumn: f.long || f.file || f.apps || f.certDetails || f.contacts || f.repeater ? "span 2" : "auto" }}>
                     <dt style={{ fontSize: 11, color: "var(--text-faint)", fontWeight: 600, letterSpacing: ".01em", marginBottom: 2 }}>{f.label}</dt>
                     <dd style={{ margin: 0, fontSize: 12.5, fontWeight: 500, color: "var(--text)", wordBreak: "break-word" }}>{fieldValue(app, f)}</dd>
                   </div>
