@@ -30,8 +30,12 @@ const STEPS = [
 function emptyApp() {
   const o = { name: "" };
   NESR.fieldDefs.forEach((f) => { o[f.key] = f.multi || f.apps ? [] : ""; });
+  o.annualLicenseCost = 0;
+  o.annualMaintCost = 0;
+  o.tco = 0;
   return o;
 }
+const computeTco = (d) => (Number(d.annualLicenseCost) || 0) + (Number(d.annualMaintCost) || 0);
 
 const fieldVisible = (f, data) => !f.showIf || (f.showIf.in || []).includes(data[f.showIf.key]);
 const domainVisible = (dom, data) => !dom.showIf || (dom.showIf.in || []).includes(data[dom.showIf.key]);
@@ -266,6 +270,9 @@ function Field({ f, value, onChange, error, lead, apps, docProps }) {
   } else if (f.auto) {
     input = <input {...common} disabled value={value || "Auto-generated on submit"}
       style={{ ...inputStyle(false), background: "var(--surface-2)", color: "var(--text-faint)", fontFamily: "var(--mono)" }} />;
+  } else if (f.computed) {
+    input = <input type="number" disabled value={value ?? 0}
+      style={{ ...inputStyle(false), background: "var(--surface-2)", color: "var(--text-soft)", fontWeight: 600 }} />;
   } else if (f.apps) {
     const names = apps.map((a) => a.name).filter((n) => n && n !== value);
     input = <MultiSelect value={value || []} options={[...new Set(names)].sort()} onChange={(v) => onChange(f.key, v)} placeholder="Link applications…" />;
@@ -307,7 +314,11 @@ function Field({ f, value, onChange, error, lead, apps, docProps }) {
 export function AddForm() {
   const { submitApp, push, setView, prefill, setPrefill, apps, me } = useStore();
   const [step, setStep] = useState(0);
-  const [data, setData] = useState(() => (prefill ? { ...emptyApp(), ...prefill } : emptyApp()));
+  const [data, setData] = useState(() => {
+    const init = prefill ? { ...emptyApp(), ...prefill } : emptyApp();
+    init.tco = computeTco(init); // TCO always = license + maintenance
+    return init;
+  });
   const [touched, setTouched] = useState(false);
   const [saving, setSaving] = useState(false);
   const [pendingFiles, setPendingFiles] = useState([]);
@@ -318,7 +329,11 @@ export function AddForm() {
   useEffect(() => { loadCostCenters().then(setCostCenters); }, []);
   useEffect(() => () => setPrefill(null), [setPrefill]);
 
-  const set = (k, v) => setData((d) => ({ ...d, [k]: v }));
+  const set = (k, v) => setData((d) => {
+    const nd = { ...d, [k]: v };
+    if (k === "annualLicenseCost" || k === "annualMaintCost") nd.tco = computeTco(nd);
+    return nd;
+  });
   const patch = (obj) => setData((d) => ({ ...d, ...obj }));
   const errors = {};
   REQUIRED.forEach((k) => { if (!String(data[k] || "").trim()) errors[k] = "Required"; });

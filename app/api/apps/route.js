@@ -15,6 +15,8 @@ export function pickFields(body) {
     rec[k] = body[k] ?? (isArr ? [] : "");
     if (isArr && !Array.isArray(rec[k])) rec[k] = rec[k] ? [rec[k]] : [];
   }
+  // TCO is always License + Maintenance (never taken from the client).
+  rec.tco = (Number(rec.annualLicenseCost) || 0) + (Number(rec.annualMaintCost) || 0);
   return rec;
 }
 export function deriveAlias(name) {
