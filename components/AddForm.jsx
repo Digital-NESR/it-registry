@@ -29,7 +29,7 @@ const STEPS = [
 
 function emptyApp() {
   const o = { name: "" };
-  NESR.fieldDefs.forEach((f) => { o[f.key] = f.multi || f.apps ? [] : f.obj ? {} : ""; });
+  NESR.fieldDefs.forEach((f) => { o[f.key] = f.multi || f.apps || f.contacts ? [] : f.obj ? {} : ""; });
   o.annualLicenseCost = 0;
   o.annualMaintCost = 0;
   o.tco = 0;
@@ -291,9 +291,43 @@ function DocRow({ name, sub, onRemove, pending }) {
   );
 }
 
+/* ---------- dynamic contacts list (name / email / phone) ---------- */
+function ContactsField({ value, onChange }) {
+  const contacts = Array.isArray(value) ? value : [];
+  const upd = (i, k, v) => onChange(contacts.map((c, idx) => (idx === i ? { ...c, [k]: v } : c)));
+  const add = () => onChange([...contacts, { name: "", email: "", phone: "" }]);
+  const remove = (i) => onChange(contacts.filter((_, idx) => idx !== i));
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+      {contacts.length === 0 && <div style={{ fontSize: 11.5, color: "var(--text-faint)" }}>No contacts added yet.</div>}
+      {contacts.map((c, i) => (
+        <div key={i} style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr auto", gap: 8, alignItems: "center" }}>
+          <input style={inputStyle(false)} placeholder="Name" value={c.name || ""} onChange={(e) => upd(i, "name", e.target.value)} />
+          <input style={inputStyle(false)} type="email" placeholder="Email" value={c.email || ""} onChange={(e) => upd(i, "email", e.target.value)} />
+          <input style={inputStyle(false)} placeholder="Phone" value={c.phone || ""} onChange={(e) => upd(i, "phone", e.target.value)} />
+          <button type="button" onClick={() => remove(i)} title="Remove contact" style={{ ...ghostBtn, padding: "8px 10px" }}><Icon name="x" size={14} /></button>
+        </div>
+      ))}
+      <button type="button" onClick={add} style={{ ...ghostBtn, alignSelf: "flex-start" }}><Icon name="plus" size={14} /> Add contact</button>
+    </div>
+  );
+}
+
 function Field({ f, value, onChange, error, lead, apps, docPropsFor }) {
   const id = "fld-" + f.key;
   const req = REQUIRED.includes(f.key);
+  if (f.checkbox) {
+    return (
+      <div style={{ gridColumn: "span 2" }}>
+        <label style={{ display: "inline-flex", alignItems: "center", gap: 9, cursor: "pointer", fontSize: 12.5, fontWeight: 600, color: "var(--text)" }}>
+          <input type="checkbox" checked={value === "Yes"} onChange={(e) => onChange(f.key, e.target.checked ? "Yes" : "No")}
+            style={{ width: 16, height: 16, accentColor: "var(--green-600)" }} />
+          {f.label}
+        </label>
+        {f.hint && <div style={{ fontSize: 11, color: "var(--text-faint)", marginTop: 4, lineHeight: 1.4 }}>{f.hint}</div>}
+      </div>
+    );
+  }
   const common = {
     id, value: value ?? "", onChange: (e) => onChange(f.key, e.target.value), className: "focusable", style: inputStyle(error),
   };
@@ -306,6 +340,8 @@ function Field({ f, value, onChange, error, lead, apps, docPropsFor }) {
   } else if (f.computed) {
     input = <input type="number" disabled value={value ?? 0}
       style={{ ...inputStyle(false), background: "var(--surface-2)", color: "var(--text-soft)", fontWeight: 600 }} />;
+  } else if (f.contacts) {
+    input = <ContactsField value={value} onChange={(v) => onChange(f.key, v)} />;
   } else if (f.apps) {
     const names = apps.map((a) => a.name).filter((n) => n && n !== value);
     input = <MultiSelect value={value || []} options={[...new Set(names)].sort()} onChange={(v) => onChange(f.key, v)} placeholder="Link applications…" />;
@@ -330,7 +366,7 @@ function Field({ f, value, onChange, error, lead, apps, docPropsFor }) {
     input = <input type="text" {...common} />;
   }
   return (
-    <div style={{ gridColumn: f.long || f.file || f.apps ? "span 2" : "auto" }}>
+    <div style={{ gridColumn: f.long || f.file || f.apps || f.contacts ? "span 2" : "auto" }}>
       <label htmlFor={id} style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 11.5, fontWeight: 600, color: "var(--text-soft)", marginBottom: 5 }}>
         {f.key === "name" ? "Application Name" : f.label}
         {req && <span style={{ color: "var(--st-reject)" }}>*</span>}

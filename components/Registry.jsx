@@ -52,7 +52,7 @@ const COLDEFS = {
   supportTier: { label: "Support", w: 150 },
   slaAvailability: { label: "SLA", w: 80, render: (a) => <span className="num">{a.slaAvailability}</span> },
   monitoringTool: { label: "Monitoring", w: 110 },
-  appVendor: { label: "Vendor", w: 150 },
+  appVendor: { label: "Software Provider", w: 160 },
   totalUserBase: { label: "Users", w: 90, align: "right", render: (a) => <span className="num">{fmtNum(a.totalUserBase)}</span> },
   strategicAlignment: { label: "Strategic Fit", w: 200 },
   integrationComplexity: { label: "Integration", w: 110 },
