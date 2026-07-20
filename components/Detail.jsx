@@ -5,7 +5,7 @@ import { useStore } from "./store";
 import { NESR } from "@/lib/schema";
 import {
   Icon, Avatar, Chip, StatusChip, ApprovalChip, CritChip, PiiCell, Modal,
-  fmtMoney, fmtMoneyFull, fmtNum, fmtDate, daysUntil, VULN_C, CRIT_C, critTier,
+  fmtMoney, fmtMoneyFull, fmtNum, fmtDate, daysUntil, CRIT_C, critTier,
   exportCSV, primaryBtn, ghostBtn, textBtn,
 } from "./ui";
 
@@ -57,7 +57,6 @@ function fieldValue(app, f) {
   }
   if (f.key === "status") return <StatusChip value={v} />;
   if (f.key === "businessCriticality") return <span style={{ display: "inline-flex", alignItems: "center", gap: 7 }}><span style={{ width: 8, height: 8, borderRadius: 2, background: CRIT_C[critTier(v)] }} />{v}</span>;
-  if (f.key === "openVulnerabilities") return <span style={{ color: VULN_C[v], fontWeight: 600 }}>{v}</span>;
   if (f.key === "containsPii") return <PiiCell v={v} />;
   if (f.ref === "yesNo") return <Chip color={v === "Yes" ? "--st-active" : "--st-decom"} bg={v === "Yes" ? "--st-active-bg" : "--st-decom-bg"}>{v}</Chip>;
   if (PEOPLE_KEYS.includes(f.key)) return <span style={{ display: "inline-flex", alignItems: "center", gap: 7 }}><Avatar name={v} size={20} />{v}</span>;
@@ -165,7 +164,7 @@ export function Detail({ app }) {
         <HiStat label="Annual TCO" value={fmtMoney(app.tco)} sub={`License ${fmtMoney(app.annualLicenseCost)}`} icon="coin" />
         <HiStat label="Total Users" value={fmtNum(app.totalUserBase)} sub={`${app.seatCount ? fmtNum(app.seatCount) + " seats" : "user base"}`} icon="user" />
         <HiStat label="Integrations" value={app.integrationCount || "—"} sub={app.integrationComplexity} icon="link" />
-        <HiStat label="Open Vulns" value={app.openVulnerabilities} sub={`DR ${app.drAvailability === "Yes" ? "available" : "none"} · SLA ${app.slaAvailability || "—"}`} icon="shield" tone={VULN_C[app.openVulnerabilities]} />
+        <HiStat label="Resilience" value={app.drAvailability === "Yes" ? "DR ready" : "No DR"} sub={`Backup ${app.hasBackup || "—"} · SLA ${app.slaAvailability || "—"}`} icon="shield" tone={app.drAvailability === "Yes" ? "var(--st-active)" : "var(--st-sunset)"} />
       </div>
 
       {/* domain sections */}

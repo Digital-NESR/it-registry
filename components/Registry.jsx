@@ -5,7 +5,7 @@ import { useStore } from "./store";
 import { NESR } from "@/lib/schema";
 import {
   Icon, Avatar, StatusChip, ApprovalChip, CritChip, PiiCell, Dropdown,
-  fmtMoney, fmtNum, fmtDate, daysUntil, VULN_C, exportCSV,
+  fmtMoney, fmtNum, fmtDate, daysUntil, exportCSV,
   primaryBtn, textBtn, ghostBtn,
 } from "./ui";
 
@@ -47,7 +47,6 @@ const COLDEFS = {
   annualLicenseCost: { label: "License $/yr", w: 105, align: "right", render: (a) => <span className="num">{fmtMoney(a.annualLicenseCost)}</span> },
   dataClassification: { label: "Data Class", w: 110 },
   containsPii: { label: "PII", w: 70, render: (a) => <PiiCell v={a.containsPii} /> },
-  openVulnerabilities: { label: "Vulns", w: 90, render: (a) => <span style={{ color: VULN_C[a.openVulnerabilities], fontWeight: 600, fontSize: 12.5 }}>{a.openVulnerabilities}</span> },
   drAvailability: { label: "DR", w: 75, render: (a) => <span style={{ fontWeight: 600, color: a.drAvailability === "Yes" ? "var(--st-active)" : "var(--text-faint)" }}>{a.drAvailability || "—"}</span> },
   hasBackup: { label: "Backup", w: 85, render: (a) => <span style={{ fontWeight: 600, color: a.hasBackup === "Yes" ? "var(--st-active)" : "var(--st-reject)" }}>{a.hasBackup || "—"}</span> },
   supportTier: { label: "Support", w: 150 },
@@ -67,7 +66,7 @@ const COL_GROUPS = [
   { key: "overview", label: "Overview", cols: ["status", "approvalStatus", "department", "businessCriticality", "tco"] },
   { key: "ownership", label: "Ownership", cols: ["businessOwner", "itOwner", "country", "companyName", "sourcing"] },
   { key: "technical", label: "Technical", cols: ["hostingModel", "hostingLocation", "cloudProvider", "integrationComplexity", "ssoProvider"] },
-  { key: "risk", label: "Risk & Compliance", cols: ["dataClassification", "containsPii", "openVulnerabilities", "drAvailability", "hasBackup"] },
+  { key: "risk", label: "Risk & Compliance", cols: ["dataClassification", "containsPii", "drAvailability", "hasBackup"] },
   { key: "financial", label: "Financial", cols: ["annualLicenseCost", "contractRenewalDate"] },
   { key: "vendor", label: "Vendor & Support", cols: ["appVendor", "supportTier", "slaAvailability", "monitoringTool", "nextReviewDate"] },
   { key: "value", label: "Business Value", cols: ["totalUserBase", "strategicAlignment", "goLiveDate"] },

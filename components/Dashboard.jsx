@@ -5,10 +5,11 @@ import { useStore } from "./store";
 import { NESR } from "@/lib/schema";
 import {
   Icon, Dropdown, Panel, exportCSV, fmtMoney, fmtNum, fmtDate, daysUntil,
-  STATUS_C, CRIT_C, VULN_C, critTier, primaryBtn, textBtn,
+  STATUS_C, CRIT_C, critTier, primaryBtn, textBtn,
 } from "./ui";
 
 const PIE_COLORS = ["#2A7E4F", "#2563A8", "#B7791F", "#C05621", "#6B6D6B", "#8B5CF6", "#0E7490", "#BE185D"];
+const CLASS_C = { "Public": "#6AAF8E", "Internal": "#2563A8", "Confidential": "#B7791F", "Restricted": "#C05621", "Top Secret": "#B42318" };
 
 function countBy(arr, fn) {
   const m = new Map();
@@ -134,7 +135,6 @@ export function Dashboard() {
   const license = filtered.reduce((s, a) => s + (+a.annualLicenseCost || 0), 0);
   const activeN = filtered.filter(a => a.status === "Active").length;
   const pendingN = apps.filter(a => a.approvalStatus === "Pending").length;
-  const highVuln = filtered.filter(a => ["High", "Critical"].includes(a.openVulnerabilities)).length;
   const renewals = filtered.filter(a => { const d = daysUntil(a.contractRenewalDate); return d != null && d >= 0 && d <= 120; })
     .sort((a, b) => daysUntil(a.contractRenewalDate) - daysUntil(b.contractRenewalDate));
 
@@ -145,7 +145,7 @@ export function Dashboard() {
   const byCrit = ["Tier 1 – Mission Critical", "Tier 2 – Business Critical", "Tier 3 – Standard", "Tier 4 – Low"]
     .map(t => [t.replace(/ –.*/, ""), filtered.filter(a => a.businessCriticality === t).length]).filter(d => d[1] > 0);
   const piiYes = filtered.filter(a => a.containsPii === "Yes").length;
-  const vulnDist = ["None", "Low", "Medium", "High", "Critical"].map(v => [v, filtered.filter(a => a.openVulnerabilities === v).length]);
+  const classDist = ["Public", "Internal", "Confidential", "Restricted", "Top Secret"].map(v => [v, filtered.filter(a => a.dataClassification === v).length]);
 
   const deptOptions = useMemo(() => [...new Set(apps.map(a => a.department).filter(Boolean))].sort(), [apps]);
   const statusColor = (s) => `var(${(STATUS_C[s] || STATUS_C.Decommissioned)[0]})`;
@@ -195,7 +195,7 @@ export function Dashboard() {
         <Kpi label="Active" value={activeN} icon="check" tone="--st-active" sub={`${Math.round(activeN / (filtered.length || 1) * 100)}% of estate`} />
         <Kpi label="Pending Approval" value={pendingN} icon="clock" tone="--st-review" onClick={() => setView("approvals")} link />
         <Kpi label="Annual TCO" value={fmtMoney(tco)} icon="coin" tone="--st-dev" sub={`License ${fmtMoney(license)}`} mono />
-        <Kpi label="High / Critical Vulns" value={highVuln} icon="alert" tone="--st-reject" sub="open security findings" />
+        <Kpi label="Contains PII" value={piiYes} icon="shield" tone="--st-review" sub={`${Math.round(piiYes / (filtered.length || 1) * 100)}% of estate`} />
       </div>
 
       {/* charts grid */}
@@ -227,22 +227,22 @@ export function Dashboard() {
           </div>
         </Panel>
 
-        <Panel title="Security & compliance" sub="Open vulnerabilities across the estate" span={7}>
+        <Panel title="Security & compliance" sub="Data classification across the estate" span={7}>
           <div style={{ display: "flex", gap: 7, alignItems: "flex-end", height: 130, marginBottom: 8 }}>
-            {vulnDist.map((v, i) => {
-              const m = Math.max(...vulnDist.map(x => x[1]), 1);
+            {classDist.map((v, i) => {
+              const m = Math.max(...classDist.map(x => x[1]), 1);
               return (
                 <div key={v[0]} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 6, height: "100%", justifyContent: "flex-end" }}>
-                  <span className="num" style={{ fontSize: 12, fontWeight: 700, color: VULN_C[v[0]] }}>{v[1]}</span>
+                  <span className="num" style={{ fontSize: 12, fontWeight: 700, color: CLASS_C[v[0]] }}>{v[1]}</span>
                   <div style={{ width: "100%", maxWidth: 54, height: (v[1] / m * 88) + "%", minHeight: v[1] ? 4 : 0,
-                    background: VULN_C[v[0]], borderRadius: "6px 6px 0 0", transformOrigin: "bottom",
+                    background: CLASS_C[v[0]], borderRadius: "6px 6px 0 0", transformOrigin: "bottom",
                     animation: `growBar .6s cubic-bezier(.3,.8,.3,1) ${i * 0.05}s both` }} />
                 </div>
               );
             })}
           </div>
           <div style={{ display: "flex", gap: 7 }}>
-            {vulnDist.map(v => <div key={v[0]} style={{ flex: 1, textAlign: "center", fontSize: 11, color: "var(--text-faint)", fontWeight: 500 }}>{v[0]}</div>)}
+            {classDist.map(v => <div key={v[0]} style={{ flex: 1, textAlign: "center", fontSize: 11, color: "var(--text-faint)", fontWeight: 500 }}>{v[0]}</div>)}
           </div>
           <div style={{ display: "flex", gap: 14, marginTop: 16 }}>
             <MiniStat label="Contains PII" value={piiYes} sub={`${Math.round(piiYes / (filtered.length || 1) * 100)}% of apps`} />
