@@ -68,6 +68,11 @@ button { font-family: inherit; cursor: pointer; }
   outline: 2px solid var(--green-400); outline-offset: 1px;
 }
 
+/* translucent placeholder text */
+input::placeholder, textarea::placeholder {
+  color: var(--text-faint); opacity: 0.6; font-style: italic;
+}
+
 /* keyframes — NOTE: page/card containers animate transform-only so content is
    never invisible if the animation is paused (e.g. backgrounded iframe). */
 @keyframes viewIn { from { transform: translateY(9px); } to { transform: none; } }

@@ -358,6 +358,7 @@ function Field({ f, value, onChange, error, lead, apps, docPropsFor }) {
   }
   const common = {
     id, value: value ?? "", onChange: (e) => onChange(f.key, e.target.value), className: "focusable", style: inputStyle(error),
+    placeholder: f.placeholder || undefined,
   };
   let input;
   if (f.file) {
@@ -403,7 +404,7 @@ function Field({ f, value, onChange, error, lead, apps, docPropsFor }) {
       </select>
     );
   } else if (f.long) {
-    input = <textarea {...common} rows={2} style={{ ...inputStyle(error), resize: "vertical" }} />;
+    input = <textarea {...common} rows={f.rows || 2} style={{ ...inputStyle(error), resize: "vertical" }} />;
   } else if (f.date) {
     input = <input type="date" {...common} />;
   } else if (f.money || f.num) {
