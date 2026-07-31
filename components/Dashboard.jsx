@@ -2,14 +2,45 @@
 /* ===== Dashboard: portfolio analytics, slice & dice, export ===== */
 import { useState, useRef, useMemo } from "react";
 import { useStore } from "./store";
-import { NESR } from "@/lib/schema";
+import { NESR, headOfIT } from "@/lib/schema";
 import {
   Icon, Dropdown, Panel, exportCSV, fmtMoney, fmtNum, fmtDate, daysUntil,
-  STATUS_C, CRIT_C, critTier, primaryBtn, textBtn,
+  STATUS_C, CRIT_C, critTier, primaryBtn, textBtn, initials, avatarColor,
 } from "./ui";
 
 const PIE_COLORS = ["#2A7E4F", "#2563A8", "#B7791F", "#C05621", "#6B6D6B", "#8B5CF6", "#0E7490", "#BE185D"];
 const CLASS_C = { "Public": "#6AAF8E", "Internal": "#2563A8", "Confidential": "#B7791F", "Restricted": "#C05621", "Top Secret": "#B42318" };
+
+/* ---------- expiry flagging (real current date, tiered colour code) ---------- */
+// Date fields that represent an expiry / renewal / review deadline.
+const EXPIRY_SOURCES = [
+  { key: "vendorEolDate", label: "Vendor end-of-life" },
+  { key: "contractRenewalDate", label: "Contract renewal" },
+  { key: "plannedRetirement", label: "Planned retirement" },
+  { key: "nextReviewDate", label: "Next review" },
+];
+// Tiers ordered most-urgent first. days <= max wins; anything already expired lands in the maroon tier.
+const EXP_TIERS = [
+  { max: 7, key: "critical", color: "#7B1E1E", soft: "#F3E1E1", name: "≤ 7 days" },   // maroon
+  { max: 30, key: "urgent", color: "#C0392B", soft: "#FADFDA", name: "≤ 30 days" },   // red
+  { max: 60, key: "soon", color: "#C8971C", soft: "#F7EED2", name: "≤ 60 days" },     // yellow
+  { max: 90, key: "upcoming", color: "#2A7E4F", soft: "#E1F0E8", name: "≤ 90 days" }, // green
+];
+const EXPIRY_WINDOW = 90;
+const expTierFor = (days) => EXP_TIERS.find((t) => days <= t.max) || EXP_TIERS[EXP_TIERS.length - 1];
+// Days from *today* (real date, not the pinned demo date) to an ISO date; negative = already expired.
+function daysFromNow(iso) {
+  if (!iso) return null;
+  const d = new Date(iso);
+  if (isNaN(d)) return null;
+  const t = new Date();
+  return Math.round((d.setHours(0, 0, 0, 0) - t.setHours(0, 0, 0, 0)) / 86400000);
+}
+function expiryLabel(days) {
+  if (days < 0) return `Expired ${-days}d ago`;
+  if (days === 0) return "Due today";
+  return `${days}d left`;
+}
 
 function countBy(arr, fn) {
   const m = new Map();
@@ -147,6 +178,24 @@ export function Dashboard() {
   const piiYes = filtered.filter(a => a.containsPii === "Yes").length;
   const classDist = ["Public", "Internal", "Confidential", "Restricted", "Top Secret"].map(v => [v, filtered.filter(a => a.dataClassification === v).length]);
 
+  // Upcoming expiries across all visible (non-draft) apps — always full picture, independent of the slice filters.
+  const expiries = useMemo(() => {
+    const out = [];
+    for (const a of apps) {
+      if (a.approvalStatus === "Draft") continue;
+      for (const s of EXPIRY_SOURCES) {
+        const days = daysFromNow(a[s.key]);
+        if (days != null && days <= EXPIRY_WINDOW) out.push({ app: a, what: s.label, date: a[s.key], days });
+      }
+      const ce = a.certExpiry && typeof a.certExpiry === "object" ? a.certExpiry : {};
+      for (const [cert, dt] of Object.entries(ce)) {
+        const days = daysFromNow(dt);
+        if (days != null && days <= EXPIRY_WINDOW) out.push({ app: a, what: `Certification · ${cert}`, date: dt, days });
+      }
+    }
+    return out.sort((x, y) => x.days - y.days);
+  }, [apps]);
+
   const deptOptions = useMemo(() => [...new Set(apps.map(a => a.department).filter(Boolean))].sort(), [apps]);
   const statusColor = (s) => `var(${(STATUS_C[s] || STATUS_C.Decommissioned)[0]})`;
   const critColorByLabel = (l) => CRIT_C[+l.replace("Tier ", "")] || "#6B6D6B";
@@ -200,6 +249,63 @@ export function Dashboard() {
 
       {/* charts grid */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(12, 1fr)", gap: 16 }}>
+        <Panel span={12}
+          title={<span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}><Icon name="alert" size={16} /> Expiring soon — action required</span>}
+          sub="Next 90 days across your applications · flagged to the Business Owner, Application Manager, Recorder & IT Director"
+          action={
+            <div style={{ display: "flex", gap: 14, flexWrap: "wrap" }}>
+              {EXP_TIERS.map(t => (
+                <span key={t.key} style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 11.5, color: "var(--text-soft)" }}>
+                  <span style={{ width: 10, height: 10, borderRadius: 3, background: t.color }} /> {t.name}
+                </span>
+              ))}
+            </div>
+          }>
+          {expiries.length === 0
+            ? <div style={{ padding: "26px 0", textAlign: "center", color: "var(--text-faint)", fontSize: 12.5 }}>Nothing expiring in the next 90 days.</div>
+            : (
+              <div style={{ display: "flex", flexDirection: "column", maxHeight: 372, overflowY: "auto", margin: "0 -4px" }}>
+                {expiries.map((it, i) => {
+                  const t = expTierFor(it.days);
+                  const people = [
+                    ["Business Owner", it.app.businessOwner],
+                    ["Application Manager", it.app.itOwner],
+                    ["Recorded by", it.app.submittedBy],
+                    ["IT Director", headOfIT],
+                  ].filter(([, n]) => n);
+                  return (
+                    <div key={it.app.id + it.what} style={{ display: "flex", alignItems: "center", gap: 13, padding: "11px 12px",
+                      borderTop: i ? "1px solid var(--line)" : "none", borderLeft: `3px solid ${t.color}`, background: i % 2 ? "transparent" : "transparent" }}
+                      onMouseEnter={e => e.currentTarget.style.background = "var(--surface-2)"}
+                      onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
+                      <span className="num" style={{ background: t.soft, color: t.color, fontWeight: 700, fontSize: 12,
+                        padding: "5px 9px", borderRadius: 8, minWidth: 92, textAlign: "center", flexShrink: 0 }}>{expiryLabel(it.days)}</span>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontSize: 13.5, fontWeight: 600, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{it.app.name}</div>
+                        <div style={{ fontSize: 11.5, color: "var(--text-faint)" }}>{it.what}{it.app.department ? ` · ${it.app.department}` : ""}</div>
+                      </div>
+                      <div style={{ display: "flex", alignItems: "center", flexShrink: 0 }} title={people.map(([r, n]) => `${r}: ${n}`).join("\n")}>
+                        {people.map(([role, name], j) => (
+                          <span key={role} title={`${role}: ${name}`} style={{ width: 26, height: 26, borderRadius: 99, background: avatarColor(name),
+                            color: "#fff", fontSize: 10, fontWeight: 700, display: "grid", placeItems: "center", border: "2px solid var(--surface)",
+                            marginLeft: j ? -8 : 0, position: "relative", zIndex: people.length - j }}>{initials(name)}</span>
+                        ))}
+                      </div>
+                      <div style={{ textAlign: "right", flexShrink: 0, minWidth: 84 }}>
+                        <div className="num" style={{ fontSize: 12, fontWeight: 600, color: t.color }}>{fmtDate(it.date)}</div>
+                      </div>
+                      <button onClick={() => goDetail(it.app.id)} className="focusable" style={{ display: "inline-flex", alignItems: "center", gap: 6,
+                        border: "none", background: t.color, color: "#fff", fontWeight: 600, fontSize: 12, padding: "7px 13px", borderRadius: 8,
+                        cursor: "pointer", flexShrink: 0 }}>
+                        <Icon name="edit" size={13} strokeWidth={2} /> Update
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+        </Panel>
+
         <Panel title="Lifecycle status" sub="Click a slice to filter the dashboard" span={4}>
           <Donut data={byStatus} colorMap={statusColor} onSlice={v => toggle("status", v)} activeKey={filters.status} />
         </Panel>
