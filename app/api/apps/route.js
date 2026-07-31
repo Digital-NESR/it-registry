@@ -55,7 +55,7 @@ export async function POST(req) {
 
     let saved = await insertApp(rec);
     if (!saved.appId) {
-      saved = await patchApp(saved.id, { appId: "NESR-APP-" + String(1000 + saved.id * 7).slice(0, 4) });
+      saved = await patchApp(saved.id, { appId: "NESR-APP-" + String(saved.id).padStart(4, "0") });
     }
     await reconcileLinks(saved);
     const actor = await getActor(req, body.me);
