@@ -28,3 +28,7 @@ yarn-error.log*
 # misc
 .DS_Store
 *.pem
+
+# import-template intermediate dumps
+scripts/import-template/spec.json
+scripts/import-template/cc.json
