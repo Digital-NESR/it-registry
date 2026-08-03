@@ -3,6 +3,7 @@
 import { useState, useRef, useMemo } from "react";
 import { useStore } from "./store";
 import { NESR, headOfIT } from "@/lib/schema";
+import { EXP_TIERS, EXPIRY_WINDOW, expTierFor, expiryLabel, appExpiries } from "@/lib/expiry";
 import {
   Icon, Dropdown, Panel, exportCSV, fmtMoney, fmtNum, fmtDate, daysUntil,
   STATUS_C, CRIT_C, critTier, primaryBtn, textBtn, initials, avatarColor,
@@ -10,37 +11,6 @@ import {
 
 const PIE_COLORS = ["#2A7E4F", "#2563A8", "#B7791F", "#C05621", "#6B6D6B", "#8B5CF6", "#0E7490", "#BE185D"];
 const CLASS_C = { "Public": "#6AAF8E", "Internal": "#2563A8", "Confidential": "#B7791F", "Restricted": "#C05621", "Top Secret": "#B42318" };
-
-/* ---------- expiry flagging (real current date, tiered colour code) ---------- */
-// Date fields that represent an expiry / renewal / review deadline.
-const EXPIRY_SOURCES = [
-  { key: "vendorEolDate", label: "Vendor end-of-life" },
-  { key: "contractRenewalDate", label: "Contract renewal" },
-  { key: "plannedRetirement", label: "Planned retirement" },
-  { key: "nextReviewDate", label: "Next review" },
-];
-// Tiers ordered most-urgent first. days <= max wins; anything already expired lands in the maroon tier.
-const EXP_TIERS = [
-  { max: 7, key: "critical", color: "#7B1E1E", soft: "#F3E1E1", name: "≤ 7 days" },   // maroon
-  { max: 30, key: "urgent", color: "#C0392B", soft: "#FADFDA", name: "≤ 30 days" },   // red
-  { max: 60, key: "soon", color: "#C8971C", soft: "#F7EED2", name: "≤ 60 days" },     // yellow
-  { max: 90, key: "upcoming", color: "#2A7E4F", soft: "#E1F0E8", name: "≤ 90 days" }, // green
-];
-const EXPIRY_WINDOW = 90;
-const expTierFor = (days) => EXP_TIERS.find((t) => days <= t.max) || EXP_TIERS[EXP_TIERS.length - 1];
-// Days from *today* (real date, not the pinned demo date) to an ISO date; negative = already expired.
-function daysFromNow(iso) {
-  if (!iso) return null;
-  const d = new Date(iso);
-  if (isNaN(d)) return null;
-  const t = new Date();
-  return Math.round((d.setHours(0, 0, 0, 0) - t.setHours(0, 0, 0, 0)) / 86400000);
-}
-function expiryLabel(days) {
-  if (days < 0) return `Expired ${-days}d ago`;
-  if (days === 0) return "Due today";
-  return `${days}d left`;
-}
 
 function countBy(arr, fn) {
   const m = new Map();
@@ -179,22 +149,12 @@ export function Dashboard() {
   const classDist = ["Public", "Internal", "Confidential", "Restricted", "Top Secret"].map(v => [v, filtered.filter(a => a.dataClassification === v).length]);
 
   // Upcoming expiries across all visible (non-draft) apps — always full picture, independent of the slice filters.
-  const expiries = useMemo(() => {
-    const out = [];
-    for (const a of apps) {
-      if (a.approvalStatus === "Draft") continue;
-      for (const s of EXPIRY_SOURCES) {
-        const days = daysFromNow(a[s.key]);
-        if (days != null && days <= EXPIRY_WINDOW) out.push({ app: a, what: s.label, date: a[s.key], days });
-      }
-      const ce = a.certExpiry && typeof a.certExpiry === "object" ? a.certExpiry : {};
-      for (const [cert, dt] of Object.entries(ce)) {
-        const days = daysFromNow(dt);
-        if (days != null && days <= EXPIRY_WINDOW) out.push({ app: a, what: `Certification · ${cert}`, date: dt, days });
-      }
-    }
-    return out.sort((x, y) => x.days - y.days);
-  }, [apps]);
+  const expiries = useMemo(() =>
+    apps
+      .filter(a => a.approvalStatus !== "Draft")
+      .flatMap(a => appExpiries(a, EXPIRY_WINDOW).map(e => ({ ...e, app: a })))
+      .sort((x, y) => x.days - y.days),
+  [apps]);
 
   const deptOptions = useMemo(() => [...new Set(apps.map(a => a.department).filter(Boolean))].sort(), [apps]);
   const statusColor = (s) => `var(${(STATUS_C[s] || STATUS_C.Decommissioned)[0]})`;

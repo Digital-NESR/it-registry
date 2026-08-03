@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useStore } from "./store";
 import { NESR } from "@/lib/schema";
+import { appExpiries, expTierFor, expiryLabel } from "@/lib/expiry";
 import {
   Icon, Avatar, Chip, StatusChip, ApprovalChip, CritChip, PiiCell, Modal,
   fmtMoney, fmtMoneyFull, fmtNum, fmtDate, daysUntil, CRIT_C, critTier,
@@ -143,12 +144,47 @@ export function Detail({ app }) {
   };
 
   const editable = canEdit(app);
+  const expiries = appExpiries(app);
+  const topTier = expiries.length ? expTierFor(expiries[0].days) : null;
 
   return (
     <div style={{ padding: "18px 26px 50px", maxWidth: 1180, margin: "0 auto" }}>
       <button onClick={() => setView("registry")} style={{ ...textBtn, paddingLeft: 0, marginBottom: 12 }}>
         <Icon name="chevLeft" size={15} /> Back to registry
       </button>
+
+      {/* expiry alert — brief of anything expiring on this application */}
+      {expiries.length > 0 && (
+        <div style={{ border: "1px solid var(--line)", borderLeft: `4px solid ${topTier.color}`, background: topTier.soft,
+          borderRadius: 12, padding: "13px 16px", marginBottom: 16 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 9, marginBottom: expiries.length ? 10 : 0 }}>
+            <Icon name="alert" size={16} style={{ color: topTier.color }} />
+            <span style={{ fontSize: 13.5, fontWeight: 700, color: topTier.color }}>
+              {expiries.length === 1 ? "1 item is expiring" : `${expiries.length} items are expiring`} for this application
+            </span>
+            {editable && (
+              <button onClick={() => { setPrefill(app); setView("add"); }} className="focusable" style={{ marginLeft: "auto",
+                display: "inline-flex", alignItems: "center", gap: 6, border: "none", background: topTier.color, color: "#fff",
+                fontWeight: 600, fontSize: 12, padding: "6px 12px", borderRadius: 8, cursor: "pointer" }}>
+                <Icon name="edit" size={13} strokeWidth={2} /> Update dates
+              </button>
+            )}
+          </div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 7 }}>
+            {expiries.map((e) => {
+              const t = expTierFor(e.days);
+              return (
+                <div key={e.what} style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 12.5 }}>
+                  <span className="num" style={{ background: "#fff", color: t.color, border: `1px solid ${t.color}`, fontWeight: 700,
+                    fontSize: 11.5, padding: "3px 8px", borderRadius: 7, minWidth: 96, textAlign: "center", flexShrink: 0 }}>{expiryLabel(e.days)}</span>
+                  <span style={{ fontWeight: 600, color: "var(--text)" }}>{e.what}</span>
+                  <span style={{ color: "var(--text-faint)" }}>· {fmtDate(e.date)}</span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* header */}
       <div style={{ background: "var(--surface)", border: "1px solid var(--line)", borderRadius: 16, padding: 22, boxShadow: "var(--shadow-sm)", marginBottom: 16 }}>
