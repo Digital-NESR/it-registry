@@ -20,8 +20,8 @@ const REQUIRED = ["name", "businessOwner", "itOwner", "department", "sourcing", 
 
 const STEPS = [
   { label: "Identity & Ownership", icon: "id", domains: ["identity"], lead: true },
-  { label: "Technical & Hosting", icon: "chip", domains: ["technical", "onprem"] },
-  { label: "Risk & Resilience", icon: "shield", domains: ["lifecycle", "risk", "resilience", "ai"] },
+  { label: "Technical & Hosting", icon: "chip", domains: ["technical", "onprem", "lifecycle"] },
+  { label: "Risk & Resilience", icon: "shield", domains: ["risk", "resilience", "ai"] },
   { label: "Financial & Vendor", icon: "coin", domains: ["financial", "vendor"] },
   { label: "Operations & Value", icon: "wrench", domains: ["support", "value", "dependencies", "documents"] },
   { label: "Review & Submit", icon: "check", domains: [] },
