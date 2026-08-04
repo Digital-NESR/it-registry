@@ -259,9 +259,8 @@ export function Detail({ app }) {
       </div>
 
       {/* highlight stats */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 14, marginBottom: 16 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 14, marginBottom: 16 }}>
         <HiStat label="Annual TCO" value={fmtMoney(app.tco)} sub={`License ${fmtMoney(app.annualLicenseCost)}`} icon="coin" />
-        <HiStat label="Total Users" value={fmtNum(app.totalUserBase)} sub={`${app.seatCount ? fmtNum(app.seatCount) + " seats" : "user base"}`} icon="user" />
         <HiStat label="Integrations" value={app.integrationCount || "—"} sub={app.integrationComplexity} icon="link" />
         <HiStat label="Resilience" value={app.drAvailability === "Yes" ? "DR ready" : "No DR"} sub={`Backup ${app.hasBackup || "—"} · SLA ${app.slaAvailability || "—"}`} icon="shield" tone={app.drAvailability === "Yes" ? "var(--st-active)" : "var(--st-sunset)"} />
       </div>

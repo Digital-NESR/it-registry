@@ -53,7 +53,6 @@ const COLDEFS = {
   slaAvailability: { label: "SLA", w: 80, render: (a) => <span className="num">{a.slaAvailability}</span> },
   monitoringTool: { label: "Monitoring", w: 110 },
   appVendor: { label: "Software Provider", w: 160 },
-  totalUserBase: { label: "Users", w: 90, align: "right", render: (a) => <span className="num">{fmtNum(a.totalUserBase)}</span> },
   strategicAlignment: { label: "Strategic Fit", w: 200 },
   integrationComplexity: { label: "Integration", w: 110 },
   ssoProvider: { label: "SSO", w: 110 },
@@ -69,7 +68,7 @@ const COL_GROUPS = [
   { key: "risk", label: "Risk & Compliance", cols: ["dataClassification", "containsPii", "drAvailability", "hasBackup"] },
   { key: "financial", label: "Financial", cols: ["annualLicenseCost", "contractRenewalDate"] },
   { key: "vendor", label: "Vendor & Support", cols: ["appVendor", "supportTier", "slaAvailability", "monitoringTool", "nextReviewDate"] },
-  { key: "value", label: "Business Value", cols: ["totalUserBase", "strategicAlignment", "goLiveDate"] },
+  { key: "value", label: "Business Value", cols: ["strategicAlignment", "goLiveDate"] },
 ];
 
 export function Registry() {
