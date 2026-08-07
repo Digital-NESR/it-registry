@@ -9,7 +9,7 @@ const box = (error) => ({
   border: "1px solid " + (error ? "var(--st-reject)" : "var(--line-strong)"), background: "var(--surface)", color: "var(--text)",
 });
 
-export function EmployeeSelect({ value, onChange, placeholder, error, field = "name" }) {
+export function EmployeeSelect({ value, onChange, onPick, placeholder, error, field = "name" }) {
   const [open, setOpen] = useState(false);
   const [q, setQ] = useState("");
   const [results, setResults] = useState([]);
@@ -33,7 +33,7 @@ export function EmployeeSelect({ value, onChange, placeholder, error, field = "n
     return () => { active = false; clearTimeout(t); };
   }, [q, open]);
 
-  const pick = (r) => { onChange(r[field] ?? r.name); setOpen(false); setQ(""); };
+  const pick = (r) => { onChange(r[field] ?? r.name); onPick?.(r); setOpen(false); setQ(""); };
 
   return (
     <div ref={ref} style={{ position: "relative" }}>

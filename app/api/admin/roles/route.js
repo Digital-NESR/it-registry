@@ -17,10 +17,10 @@ export async function GET() {
 export async function POST(req) {
   if (!(await guard())) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   try {
-    const { email, role } = await req.json();
+    const { email, role, displayName, jobTitle } = await req.json();
     if (!email || !role) return NextResponse.json({ error: "email and role are required" }, { status: 400 });
     const actor = await getActor(req);
-    await setRole(email, role, actor.actorEmail || "admin");
+    await setRole(email, role, actor.actorEmail || "admin", { displayName, jobTitle });
     await logAudit({ ...actor, action: "role.update", entityType: "user", entityId: email,
       summary: `${actor.actorName} set ${email} → ${role}` });
     return NextResponse.json(await listRoles());

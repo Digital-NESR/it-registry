@@ -86,7 +86,7 @@ function RolesPanel() {
   const [roles, setRoles] = useState([]);
   const [delegation, setDelegation] = useState(null);
   const [del, setDel] = useState({ delegateEmail: "", start: "", end: "" });
-  const [newUser, setNewUser] = useState({ email: "", role: "Manager" });
+  const [newUser, setNewUser] = useState({ email: "", role: "Manager", displayName: "", jobTitle: "" });
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState("");
 
@@ -98,16 +98,16 @@ function RolesPanel() {
   }, []);
   useEffect(() => { load(); }, [load]);
 
-  const changeRole = async (email, role) => {
+  const changeRole = async (email, role, profile) => {
     setBusy(true);
-    const r = await api("/api/admin/roles", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ email, role }) });
+    const r = await api("/api/admin/roles", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ email, role, ...(profile || {}) }) });
     if (Array.isArray(r)) setRoles(r);
-    setBusy(false); setMsg(`Updated ${email} → ${role}`); setTimeout(() => setMsg(""), 2500);
+    setBusy(false); setMsg(`Access granted: ${profile?.displayName || email} → ${role}`); setTimeout(() => setMsg(""), 2500);
   };
   const addUser = async () => {
     if (!newUser.email.trim()) return;
-    await changeRole(newUser.email.trim().toLowerCase(), newUser.role);
-    setNewUser({ email: "", role: "Manager" });
+    await changeRole(newUser.email.trim().toLowerCase(), newUser.role, { displayName: newUser.displayName, jobTitle: newUser.jobTitle });
+    setNewUser({ email: "", role: "Manager", displayName: "", jobTitle: "" });
   };
   const saveDelegation = async (clear) => {
     setBusy(true);
@@ -155,12 +155,16 @@ function RolesPanel() {
         <div style={{ padding: "16px 20px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
           <div>
             <h3 style={{ margin: 0, fontSize: 14, fontWeight: 700 }}>Users & roles</h3>
-            <div style={{ fontSize: 12, color: "var(--text-faint)" }}>{roles.length} users · Managers see/edit all · IT Director approves · others see their own</div>
+            <div style={{ fontSize: 12, color: "var(--text-faint)" }}>Pre-assign access from the directory — the role applies automatically on their first sign-in.</div>
           </div>
           <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-            <input style={{ ...inputS, width: 220 }} placeholder="add email…" value={newUser.email} onChange={(e) => setNewUser({ ...newUser, email: e.target.value })} />
+            <div style={{ width: 240 }}>
+              <EmployeeSelect value={newUser.email} field="email" placeholder="Search directory…"
+                onChange={(v) => setNewUser((n) => ({ ...n, email: v, displayName: v ? n.displayName : "", jobTitle: v ? n.jobTitle : "" }))}
+                onPick={(r) => setNewUser((n) => ({ ...n, email: r.email, displayName: r.name || "", jobTitle: r.jobTitle || "" }))} />
+            </div>
             <select style={inputS} value={newUser.role} onChange={(e) => setNewUser({ ...newUser, role: e.target.value })}>{ROLE_OPTIONS.map((r) => <option key={r}>{r}</option>)}</select>
-            <button onClick={addUser} disabled={busy} style={primaryBtn}><Icon name="plus" size={14} /> Set</button>
+            <button onClick={addUser} disabled={busy || !newUser.email} style={{ ...primaryBtn, opacity: newUser.email ? 1 : 0.5 }}><Icon name="plus" size={14} /> Grant access</button>
           </div>
         </div>
         <div style={{ overflow: "auto" }}>
